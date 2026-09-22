@@ -14,7 +14,7 @@ class RadioProvider extends ChangeNotifier {
   List<RadioStation> _topStations = [];
   List<RadioStation> _searchResults = [];
   List<RadioStation> _favorites = [];
-  List<RadioStation> _history = [];
+  final List<RadioStation> _history = [];
 
   RadioStation? _currentStation;
   bool _isLoading = false;

@@ -16,7 +16,7 @@ void main() async {
 }
 
 class WorldRadioApp extends StatelessWidget {
-  const WorldRadioApp({Key? key}) : super(key: key);
+  const WorldRadioApp({super.key});
 
   @override
   Widget build(BuildContext context) {
@@ -35,7 +35,7 @@ class WorldRadioApp extends StatelessWidget {
             primary: AppColors.primary,
             secondary: AppColors.accent,
             surface: AppColors.surface,
-            background: AppColors.background,
+            
           ),
           fontFamily: 'Roboto',
         ),
@@ -46,7 +46,7 @@ class WorldRadioApp extends StatelessWidget {
 }
 
 class MainNavigationScreen extends StatefulWidget {
-  const MainNavigationScreen({Key? key}) : super(key: key);
+  const MainNavigationScreen({super.key});
 
   @override
   State<MainNavigationScreen> createState() => _MainNavigationScreenState();

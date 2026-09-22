@@ -6,7 +6,7 @@ import '../constants/app_colors.dart';
 import '../widgets/background_widget.dart';
 
 class PlayerScreen extends StatelessWidget {
-  const PlayerScreen({Key? key}) : super(key: key);
+  const PlayerScreen({super.key});
 
   void _showSleepTimerDialog(BuildContext context, RadioProvider radio) {
     showModalBottomSheet(
@@ -138,7 +138,7 @@ class PlayerScreen extends StatelessWidget {
                     ),
                     const SizedBox(height: 8),
                     Text(
-                      '${station.country}  ${station.countryCode.isNotEmpty ? "• " + station.countryCode : ""}',
+                      '${station.country}  ${station.countryCode.isNotEmpty ? "• ${station.countryCode}" : ""}',
                       style: const TextStyle(color: AppColors.textSecondary, fontSize: 14),
                     ),
                     if (station.tags.isNotEmpty) ...[

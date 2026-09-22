@@ -6,7 +6,7 @@ import '../constants/app_colors.dart';
 import '../constants/app_strings.dart';
 
 class HomeScreen extends StatelessWidget {
-  const HomeScreen({Key? key}) : super(key: key);
+  const HomeScreen({super.key});
 
   static const List<Map<String, String>> _quickCountries = [
     {'name': 'مصر', 'code': 'EG', 'flag': '🇪🇬'},

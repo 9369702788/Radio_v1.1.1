@@ -6,7 +6,7 @@ import '../constants/app_colors.dart';
 import '../screens/player_screen.dart';
 
 class MiniPlayer extends StatelessWidget {
-  const MiniPlayer({Key? key}) : super(key: key);
+  const MiniPlayer({super.key});
 
   @override
   Widget build(BuildContext context) {
