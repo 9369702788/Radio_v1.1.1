@@ -17,6 +17,12 @@ class WidgetService {
     } catch (_) {}
   }
 
+  static Future<void> enterPip() async {
+    try {
+      await _channel.invokeMethod('enterPip');
+    } catch (_) {}
+  }
+
   static void setWidgetListener(Function() onToggle) {
     _channel.setMethodCallHandler((call) async {
       if (call.method == 'onWidgetTogglePlay') {

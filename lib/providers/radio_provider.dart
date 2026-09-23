@@ -1,3 +1,4 @@
+import 'package:flutter/services.dart';
 import '../models/program_reminder.dart';
 import '../services/widget_service.dart';
 import 'dart:async';
@@ -994,10 +995,7 @@ class RadioProvider extends ChangeNotifier {
 
   // Picture-in-Picture (Floating Player Overlay) 🎈
   Future<void> enterPictureInPicture() async {
-    final channel = MethodChannel('com.worldradio.app/widget');
-    try {
-      await channel.invokeMethod('enterPip');
-    } catch (_) {}
+    await WidgetService.enterPip();
   }
 
   // Live Audio Subtitles & Speech-to-Text Transcription 🔤
