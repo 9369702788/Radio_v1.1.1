@@ -1,3 +1,4 @@
+import '../services/ambient_sound_service.dart';
 import 'car_mode_screen.dart';
 import 'package:flutter/material.dart';
 import 'package:provider/provider.dart';
@@ -9,6 +10,293 @@ import '../constants/app_colors.dart';
 import '../widgets/background_widget.dart';
 
 class PlayerScreen extends StatelessWidget {
+
+  void _showRemindersDialog(BuildContext context, RadioProvider radio) {
+    final titleCtrl = TextEditingController();
+    TimeOfDay selectedTime = const TimeOfDay(hour: 13, minute: 0);
+    List<int> selectedDays = [];
+
+    showModalBottomSheet(
+      context: context,
+      backgroundColor: AppColors.surface,
+      isScrollControlled: true,
+      shape: const RoundedRectangleBorder(borderRadius: BorderRadius.vertical(top: Radius.circular(24))),
+      builder: (ctx) => StatefulBuilder(
+        builder: (ctx, setDialogState) {
+          return Padding(
+            padding: EdgeInsets.only(
+              left: 20,
+              right: 20,
+              top: 20,
+              bottom: MediaQuery.of(ctx).viewInsets.bottom + 20,
+            ),
+            child: SingleChildScrollView(
+              child: Column(
+                mainAxisSize: MainAxisSize.min,
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  Row(
+                    children: const [
+                      Icon(Icons.calendar_month, color: AppColors.accent, size: 22),
+                      SizedBox(width: 8),
+                      Text(
+                        'جدول البرامج والتنبيهات المجدولة 📅',
+                        style: TextStyle(color: AppColors.textPrimary, fontSize: 17, fontWeight: FontWeight.bold),
+                      ),
+                    ],
+                  ),
+                  const SizedBox(height: 6),
+                  Text(
+                    'إذاعة: ${radio.currentStation?.name ?? ""}',
+                    style: const TextStyle(color: AppColors.textSecondary, fontSize: 13),
+                  ),
+                  const SizedBox(height: 14),
+
+                  TextField(
+                    controller: titleCtrl,
+                    style: const TextStyle(color: AppColors.textPrimary),
+                    decoration: InputDecoration(
+                      labelText: 'اسم البرنامج (مثال: خطبة الجمعة، صلاة الفجر، أخبار الرياضة)',
+                      labelStyle: const TextStyle(color: AppColors.textSecondary, fontSize: 12),
+                      filled: true,
+                      fillColor: AppColors.surfaceLight,
+                      border: OutlineInputBorder(borderRadius: BorderRadius.circular(12)),
+                    ),
+                  ),
+                  const SizedBox(height: 14),
+
+                  // Pick Time
+                  Row(
+                    children: [
+                      const Text('وقت التنبيه والتشغيل:', style: TextStyle(color: AppColors.textPrimary, fontSize: 13)),
+                      const Spacer(),
+                      ElevatedButton.icon(
+                        style: ElevatedButton.styleFrom(backgroundColor: AppColors.surfaceLight),
+                        icon: const Icon(Icons.access_time, color: AppColors.accent, size: 18),
+                        label: Text(selectedTime.format(context), style: const TextStyle(color: AppColors.textPrimary)),
+                        onPressed: () async {
+                          final picked = await showTimePicker(context: context, initialTime: selectedTime);
+                          if (picked != null) {
+                            setDialogState(() => selectedTime = picked);
+                          }
+                        },
+                      ),
+                    ],
+                  ),
+                  const SizedBox(height: 14),
+
+                  // Pick Days
+                  const Text('الأيام المحددة:', style: TextStyle(color: AppColors.textSecondary, fontSize: 12)),
+                  const SizedBox(height: 6),
+                  Wrap(
+                    spacing: 6,
+                    children: [
+                      {'name': 'الجمعة', 'd': 5},
+                      {'name': 'السبت', 'd': 6},
+                      {'name': 'الأحد', 'd': 7},
+                      {'name': 'الإثنين', 'd': 1},
+                      {'name': 'الثلاثاء', 'd': 2},
+                      {'name': 'الأربعاء', 'd': 3},
+                      {'name': 'الخميس', 'd': 4},
+                    ].map((item) {
+                      final dayNum = item['d'] as int;
+                      final isSel = selectedDays.contains(dayNum);
+                      return FilterChip(
+                        label: Text(item['name'] as String, style: const TextStyle(fontSize: 11)),
+                        selected: isSel,
+                        selectedColor: AppColors.accent,
+                        backgroundColor: AppColors.surfaceLight,
+                        labelStyle: TextStyle(color: isSel ? Colors.black87 : AppColors.textPrimary),
+                        onSelected: (val) {
+                          setDialogState(() {
+                            if (val) {
+                              selectedDays.add(dayNum);
+                            } else {
+                              selectedDays.remove(dayNum);
+                            }
+                          });
+                        },
+                      );
+                    }).toList(),
+                  ),
+                  const SizedBox(height: 18),
+
+                  SizedBox(
+                    width: double.infinity,
+                    child: ElevatedButton.icon(
+                      style: ElevatedButton.styleFrom(
+                        backgroundColor: AppColors.primary,
+                        padding: const EdgeInsets.symmetric(vertical: 14),
+                        shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
+                      ),
+                      icon: const Icon(Icons.alarm_add, color: Colors.white),
+                      label: const Text('إضافة إلى جدول التنبيهات', style: TextStyle(color: Colors.white, fontWeight: FontWeight.bold)),
+                      onPressed: () {
+                        if (radio.currentStation != null) {
+                          radio.addReminder(
+                            title: titleCtrl.text,
+                            station: radio.currentStation!,
+                            hour: selectedTime.hour,
+                            minute: selectedTime.minute,
+                            days: selectedDays,
+                          );
+                          Navigator.pop(ctx);
+                          ScaffoldMessenger.of(context).showSnackBar(
+                            const SnackBar(
+                              content: Text('تمت إضافة البرنامج لجدول التنبيهات بنجاح! 📅'),
+                              backgroundColor: AppColors.success,
+                            ),
+                          );
+                        }
+                      },
+                    ),
+                  ),
+
+                  // Existing Reminders List Preview
+                  if (radio.reminders.isNotEmpty) ...[
+                    const SizedBox(height: 20),
+                    const Divider(color: AppColors.cardBorder),
+                    const Text('التنبيهات المجدولة حالياً:', style: TextStyle(color: AppColors.textPrimary, fontWeight: FontWeight.bold, fontSize: 13)),
+                    const SizedBox(height: 8),
+                    for (var r in radio.reminders)
+                      ListTile(
+                        contentPadding: EdgeInsets.zero,
+                        leading: const Icon(Icons.notifications_active, color: AppColors.accent, size: 20),
+                        title: Text('${r.title} • ${r.formattedTime}', style: const TextStyle(color: AppColors.textPrimary, fontSize: 13)),
+                        subtitle: Text('${r.stationName} (${r.daysLabel})', style: const TextStyle(color: AppColors.textSecondary, fontSize: 11)),
+                        trailing: IconButton(
+                          icon: const Icon(Icons.delete_outline, color: AppColors.error, size: 18),
+                          onPressed: () => radio.deleteReminder(r.id),
+                        ),
+                      ),
+                  ],
+                ],
+              ),
+            ),
+          );
+        },
+      ),
+    );
+  }
+
+
+  void _showAmbientSoundsDialog(BuildContext context) {
+    final ambient = AmbientSoundService();
+    showModalBottomSheet(
+      context: context,
+      backgroundColor: AppColors.surface,
+      shape: const RoundedRectangleBorder(borderRadius: BorderRadius.vertical(top: Radius.circular(20))),
+      builder: (ctx) => StatefulBuilder(
+        builder: (ctx, setModalState) {
+          return Padding(
+            padding: const EdgeInsets.all(20),
+            child: Column(
+              mainAxisSize: MainAxisSize.min,
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                Row(
+                  children: [
+                    const Icon(Icons.nature, color: AppColors.accent, size: 22),
+                    const SizedBox(width: 8),
+                    const Text(
+                      'أصوات الطبيعة والاسترخاء مع الراديو 🌧️',
+                      style: TextStyle(color: AppColors.textPrimary, fontSize: 16, fontWeight: FontWeight.bold),
+                    ),
+                    const Spacer(),
+                    if (ambient.isPlaying)
+                      IconButton(
+                        icon: const Icon(Icons.stop_circle, color: AppColors.error),
+                        onPressed: () async {
+                          await ambient.stop();
+                          setModalState(() {});
+                        },
+                      ),
+                  ],
+                ),
+                const SizedBox(height: 12),
+                Wrap(
+                  spacing: 8,
+                  runSpacing: 8,
+                  children: AmbientSoundService.ambientSounds.keys.map((sound) {
+                    final isActive = ambient.activeSound == sound && ambient.isPlaying;
+                    return ActionChip(
+                      backgroundColor: isActive ? AppColors.accent : AppColors.surfaceLight,
+                      label: Text(
+                        sound,
+                        style: TextStyle(
+                          color: isActive ? Colors.black87 : AppColors.textPrimary,
+                          fontWeight: isActive ? FontWeight.bold : FontWeight.normal,
+                        ),
+                      ),
+                      onPressed: () async {
+                        await ambient.playSound(sound);
+                        setModalState(() {});
+                      },
+                    );
+                  }).toList(),
+                ),
+                const SizedBox(height: 16),
+                const Text('مستوى صوت أصوات الطبيعة:', style: TextStyle(color: AppColors.textSecondary, fontSize: 12)),
+                Slider(
+                  value: ambient.volume,
+                  activeColor: AppColors.accent,
+                  inactiveColor: AppColors.surfaceLight,
+                  onChanged: (val) {
+                    ambient.setVolume(val);
+                    setModalState(() {});
+                  },
+                ),
+              ],
+            ),
+          );
+        },
+      ),
+    );
+  }
+
+  void _searchCurrentTrack(BuildContext context, String title) {
+    showModalBottomSheet(
+      context: context,
+      backgroundColor: AppColors.surface,
+      shape: const RoundedRectangleBorder(borderRadius: BorderRadius.vertical(top: Radius.circular(20))),
+      builder: (ctx) => Padding(
+        padding: const EdgeInsets.all(20),
+        child: Column(
+          mainAxisSize: MainAxisSize.min,
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: [
+            const Text(
+              'البحث عن المحتوى المذاع 🔍',
+              style: TextStyle(color: AppColors.textPrimary, fontSize: 18, fontWeight: FontWeight.bold),
+            ),
+            const SizedBox(height: 10),
+            Text(
+              'المادة الحالية: "$title"',
+              style: const TextStyle(color: AppColors.accent, fontSize: 14, fontWeight: FontWeight.bold),
+            ),
+            const SizedBox(height: 16),
+            ListTile(
+              leading: const Icon(Icons.video_library, color: Colors.redAccent),
+              title: const Text('البحث على YouTube', style: TextStyle(color: AppColors.textPrimary)),
+              onTap: () {
+                Navigator.pop(ctx);
+                Share.share('https://www.youtube.com/results?search_query=' + Uri.encodeComponent(title));
+              },
+            ),
+            ListTile(
+              leading: const Icon(Icons.search, color: Colors.blueAccent),
+              title: const Text('البحث على Google', style: TextStyle(color: AppColors.textPrimary)),
+              onTap: () {
+                Navigator.pop(ctx);
+                Share.share('https://www.google.com/search?q=' + Uri.encodeComponent(title));
+              },
+            ),
+          ],
+        ),
+      ),
+    );
+  }
+
   const PlayerScreen({super.key});
 
 
@@ -364,6 +652,12 @@ class PlayerScreen extends StatelessWidget {
           ),
           centerTitle: true,
           actions: [
+            // Scheduled Reminder Button 📅
+            IconButton(
+              tooltip: 'تذكير ببرنامج إذاعي مجدول',
+              icon: const Icon(Icons.calendar_month_outlined, color: AppColors.accent),
+              onPressed: () => _showRemindersDialog(context, radio),
+            ),
             // Equalizer Button 🎛️
             IconButton(
               tooltip: 'معادل الصوت و Bass Boost',
@@ -415,6 +709,11 @@ class PlayerScreen extends StatelessWidget {
                       mainAxisSize: MainAxisSize.min,
                       children: [
                         const Icon(Icons.graphic_eq, color: AppColors.accent, size: 16),
+                        const SizedBox(width: 4),
+                        GestureDetector(
+                          onTap: () => _searchCurrentTrack(context, radio.liveMetadataTitle!),
+                          child: const Icon(Icons.search, color: AppColors.accentPink, size: 16),
+                        ),
                         const SizedBox(width: 8),
                         Flexible(
                           child: Text(
@@ -485,6 +784,28 @@ class PlayerScreen extends StatelessWidget {
                   ],
                 ),
 
+                // Stream Health & Ping Indicator Badge 📶
+                Container(
+                  padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 4),
+                  decoration: BoxDecoration(
+                    color: AppColors.surfaceLight,
+                    borderRadius: BorderRadius.circular(16),
+                    border: Border.all(color: AppColors.success.withOpacity(0.4)),
+                  ),
+                  child: Row(
+                    mainAxisSize: MainAxisSize.min,
+                    children: [
+                      const Icon(Icons.circle, color: AppColors.success, size: 8),
+                      const SizedBox(width: 6),
+                      Text(
+                        'بث ممتاز • زمن الاستجابة ${radio.getStreamPing(station)}ms • ${station.bitrate > 0 ? "${station.bitrate} kbps" : "HQ Stereo"}',
+                        style: const TextStyle(color: AppColors.success, fontSize: 11, fontWeight: FontWeight.bold),
+                      ),
+                    ],
+                  ),
+                ),
+                const SizedBox(height: 8),
+
                 // Sound Modes Chips
                 Row(
                   mainAxisAlignment: MainAxisAlignment.center,
@@ -513,6 +834,18 @@ class PlayerScreen extends StatelessWidget {
                     Row(
                       mainAxisAlignment: MainAxisAlignment.spaceEvenly,
                       children: [
+                        // Rewind 30s Button ⏪
+                        IconButton(
+                          tooltip: 'إرجاع 30 ثانية',
+                          icon: const Icon(Icons.replay_30, color: AppColors.textSecondary, size: 26),
+                          onPressed: () => radio.rewind30Seconds(),
+                        ),
+                        // Ambient Sounds Button 🌧️
+                        IconButton(
+                          tooltip: 'أصوات الطبيعة المرافقة',
+                          icon: const Icon(Icons.water_drop_outlined, color: AppColors.accent, size: 26),
+                          onPressed: () => _showAmbientSoundsDialog(context),
+                        ),
                         // Sleep Timer
                         IconButton(
                           tooltip: 'مؤقت النوم',

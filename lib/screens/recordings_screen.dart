@@ -1,3 +1,4 @@
+import 'audio_trimmer_screen.dart';
 import 'package:flutter/material.dart';
 import 'package:provider/provider.dart';
 import 'package:just_audio/just_audio.dart';
@@ -163,6 +164,20 @@ class _RecordingsScreenState extends State<RecordingsScreen> {
                     trailing: Row(
                       mainAxisSize: MainAxisSize.min,
                       children: [
+                        // Cut / Trim Recording ✂️
+                        IconButton(
+                          tooltip: 'قص وتعديل المقطع',
+                          icon: const Icon(Icons.content_cut, color: AppColors.accent, size: 20),
+                          onPressed: () async {
+                            final changed = await Navigator.push(
+                              context,
+                              MaterialPageRoute(builder: (_) => AudioTrimmerScreen(recording: rec)),
+                            );
+                            if (changed == true) {
+                              radio.refreshRecordings();
+                            }
+                          },
+                        ),
                         // Share Recording
                         IconButton(
                           icon: const Icon(Icons.share, color: AppColors.textSecondary, size: 20),

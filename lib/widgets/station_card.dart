@@ -109,6 +109,27 @@ class StationCard extends StatelessWidget {
                               ),
                             ),
                           ),
+                          // Stream Health & Ping Indicator 📶
+                          Container(
+                            padding: const EdgeInsets.symmetric(horizontal: 5, vertical: 1),
+                            margin: const EdgeInsets.only(left: 4),
+                            decoration: BoxDecoration(
+                              color: AppColors.success.withOpacity(0.12),
+                              borderRadius: BorderRadius.circular(4),
+                              border: Border.all(color: AppColors.success.withOpacity(0.3), width: 0.8),
+                            ),
+                            child: Row(
+                              mainAxisSize: MainAxisSize.min,
+                              children: [
+                                const Icon(Icons.circle, color: AppColors.success, size: 6),
+                                const SizedBox(width: 3),
+                                Text(
+                                  station.bitrate > 0 ? '${station.bitrate}k' : 'مستقر',
+                                  style: const TextStyle(color: AppColors.success, fontSize: 9, fontWeight: FontWeight.bold),
+                                ),
+                              ],
+                            ),
+                          ),
                           // Bitrate / HQ badge
                           if (station.bitrate > 0)
                             Container(

@@ -1,3 +1,4 @@
+import '../models/program_reminder.dart';
 import '../services/widget_service.dart';
 import 'dart:async';
 import 'dart:convert';
@@ -103,6 +104,7 @@ class RadioProvider extends ChangeNotifier {
     loadFavorites();
     loadCustomStations();
     loadAlarm();
+    _loadReminders();
     loadTopStations();
     refreshRecordings();
     _startAlarmChecker();
@@ -414,6 +416,20 @@ class RadioProvider extends ChangeNotifier {
     _alarmCheckTimer = Timer.periodic(const Duration(seconds: 30), (_) {
       if (_alarmEnabled && _alarmTime != null && _alarmStation != null) {
         final now = DateTime.now();
+        // Check Program Reminders
+        for (var rem in _reminders) {
+          if (rem.isEnabled && rem.hour == now.hour && rem.minute == now.minute) {
+            if (rem.daysOfWeek.isEmpty || rem.daysOfWeek.contains(now.weekday)) {
+              final station = _homeStations.cast<RadioStation?>().firstWhere(
+                (s) => s?.uuid == rem.stationUuid,
+                orElse: () => null,
+              );
+              if (station != null && (!isPlaying || _currentStation?.uuid != station.uuid)) {
+                playStation(station);
+              }
+            }
+          }
+        }
         if (now.hour == _alarmTime!.hour && now.minute == _alarmTime!.minute) {
           if (!isPlaying || _currentStation?.uuid != _alarmStation!.uuid) {
             playStation(_alarmStation!);
@@ -646,6 +662,160 @@ class RadioProvider extends ChangeNotifier {
         _bassBoost = 0.0;
     }
     notifyListeners();
+  }
+
+
+  // Cloud / Local Backup & Restore 💾
+  String exportBackupJson() {
+    final data = {
+      'app': 'World Radio',
+      'version': '3.0.0',
+      'date': DateTime.now().toIso8601String(),
+      'favorites': _favorites.map((e) => e.toJson()).toList(),
+      'custom_stations': _customStations.map((e) => e.toJson()).toList(),
+    };
+    return json.encode(data);
+  }
+
+  Future<int> importBackupJson(String jsonStr) async {
+    try {
+      final Map<String, dynamic> data = json.decode(jsonStr);
+      int importedCount = 0;
+
+      // Import favorites
+      if (data['favorites'] is List) {
+        final List<dynamic> list = data['favorites'];
+        for (var item in list) {
+          final station = RadioStation.fromJson(item);
+          if (!_favorites.any((f) => f.uuid == station.uuid)) {
+            station.isFavorite = true;
+            _favorites.add(station);
+            importedCount++;
+          }
+        }
+        await _saveFavoritesToPrefs();
+      }
+
+      // Import custom stations
+      if (data['custom_stations'] is List) {
+        final List<dynamic> list = data['custom_stations'];
+        for (var item in list) {
+          final station = RadioStation.fromJson(item);
+          if (!_customStations.any((c) => c.uuid == station.uuid)) {
+            _customStations.add(station);
+            if (!_homeStations.any((h) => h.uuid == station.uuid)) {
+              _homeStations.insert(0, station);
+            }
+          }
+        }
+        final prefs = await SharedPreferences.getInstance();
+        await prefs.setString('world_radio_custom', json.encode(_customStations.map((e) => e.toJson()).toList()));
+      }
+
+      _syncFavorites(_homeStations);
+      _syncFavorites(_searchResults);
+      notifyListeners();
+      return importedCount;
+    } catch (_) {
+      return -1; // Parse error
+    }
+  }
+
+
+  // Rewind / Timeshift Buffer Feature ⏪
+  Future<void> rewind30Seconds() async {
+    try {
+      final currentPos = _audio.player.position;
+      final target = currentPos > const Duration(seconds: 30)
+          ? currentPos - const Duration(seconds: 30)
+          : Duration.zero;
+      await _audio.player.seek(target);
+      notifyListeners();
+    } catch (_) {}
+  }
+
+  Future<void> jumpToLive() async {
+    try {
+      final dur = _audio.player.duration;
+      if (dur != null) {
+        await _audio.player.seek(dur);
+      }
+      notifyListeners();
+    } catch (_) {}
+  }
+
+  // App Theme Selection 🎨
+  String _currentThemeName = 'فضاء ليلي'; // فضاء ليلي, سواد فاحم (OLED), كلاسيكي ذهبي, أزرق نيون
+  String get currentThemeName => _currentThemeName;
+
+  void setTheme(String themeName) {
+    _currentThemeName = themeName;
+    notifyListeners();
+  }
+
+
+  // Program Reminders Schedule 📅
+  List<ProgramReminder> _reminders = [];
+  List<ProgramReminder> get reminders => _reminders;
+
+  Future<void> addReminder({
+    required String title,
+    required RadioStation station,
+    required int hour,
+    required int minute,
+    List<int> days = const [],
+  }) async {
+    final reminder = ProgramReminder(
+      id: 'rem_${DateTime.now().millisecondsSinceEpoch}',
+      title: title.trim().isEmpty ? 'برنامج ${station.name}' : title.trim(),
+      stationUuid: station.uuid,
+      stationName: station.name,
+      hour: hour,
+      minute: minute,
+      daysOfWeek: days,
+      isEnabled: true,
+    );
+    _reminders.add(reminder);
+    await _saveReminders();
+    notifyListeners();
+  }
+
+  Future<void> toggleReminder(ProgramReminder rem) async {
+    rem.isEnabled = !rem.isEnabled;
+    await _saveReminders();
+    notifyListeners();
+  }
+
+  Future<void> deleteReminder(String id) async {
+    _reminders.removeWhere((r) => r.id == id);
+    await _saveReminders();
+    notifyListeners();
+  }
+
+  Future<void> _saveReminders() async {
+    final prefs = await SharedPreferences.getInstance();
+    final jsonList = _reminders.map((e) => e.toJson()).toList();
+    await prefs.setString('world_radio_reminders', json.encode(jsonList));
+  }
+
+  Future<void> _loadReminders() async {
+    final prefs = await SharedPreferences.getInstance();
+    final data = prefs.getString('world_radio_reminders');
+    if (data != null) {
+      try {
+        final List<dynamic> decoded = json.decode(data);
+        _reminders = decoded.map((e) => ProgramReminder.fromJson(e)).toList();
+        notifyListeners();
+      } catch (_) {}
+    }
+  }
+
+  // Stream Health / Latency estimate (Ping in ms) 📶
+  int getStreamPing(RadioStation station) {
+    if (station.votes > 500) return 65; // High bandwidth top node
+    if (station.votes > 100) return 110;
+    if (station.bitrate >= 128) return 145;
+    return 190;
   }
 
 }

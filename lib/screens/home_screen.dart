@@ -1,3 +1,4 @@
+import 'map_explorer_screen.dart';
 import 'package:flutter/material.dart';
 import 'package:provider/provider.dart';
 import '../providers/radio_provider.dart';
@@ -13,6 +14,38 @@ class HomeScreen extends StatefulWidget {
 }
 
 class _HomeScreenState extends State<HomeScreen> {
+
+  void _showThemeDialog(BuildContext context, RadioProvider radio) {
+    showModalBottomSheet(
+      context: context,
+      backgroundColor: AppColors.surface,
+      shape: const RoundedRectangleBorder(borderRadius: BorderRadius.vertical(top: Radius.circular(20))),
+      builder: (ctx) => Padding(
+        padding: const EdgeInsets.all(20),
+        child: Column(
+          mainAxisSize: MainAxisSize.min,
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: [
+            const Text(
+              'ألوان وثيم التطبيق 🎨',
+              style: TextStyle(color: AppColors.textPrimary, fontSize: 18, fontWeight: FontWeight.bold),
+            ),
+            const SizedBox(height: 14),
+            for (final th in ['فضاء ليلي 🌌', 'سواد فاحم (OLED) 🖤', 'كلاسيكي ذهبي 📻', 'أزرق نيون ⚡'])
+              ListTile(
+                title: Text(th, style: const TextStyle(color: AppColors.textPrimary)),
+                trailing: radio.currentThemeName == th.split(' ')[0] ? const Icon(Icons.check, color: AppColors.accent) : null,
+                onTap: () {
+                  radio.setTheme(th.split(' ')[0]);
+                  Navigator.pop(ctx);
+                },
+              ),
+          ],
+        ),
+      ),
+    );
+  }
+
   final ScrollController _scrollController = ScrollController();
 
   static const List<Map<String, String>> _quickCountries = [
@@ -183,6 +216,20 @@ class _HomeScreenState extends State<HomeScreen> {
           ],
         ),
         actions: [
+          // Globe / Map Explorer Button 🗺️
+          IconButton(
+            tooltip: 'خريطة العالم التفاعلية',
+            icon: const Icon(Icons.public, color: AppColors.accent),
+            onPressed: () {
+              Navigator.push(context, MaterialPageRoute(builder: (_) => const MapExplorerScreen()));
+            },
+          ),
+          // Theme Switcher 🎨
+          IconButton(
+            tooltip: 'ثيم وألوان التطبيق',
+            icon: const Icon(Icons.palette_outlined, color: AppColors.textPrimary),
+            onPressed: () => _showThemeDialog(context, radio),
+          ),
           // Data Saver Mode Button 📶
           IconButton(
             tooltip: radio.dataSaverMode ? 'وضع توفير الباقة مفعل (بث خفيف)' : 'تفعيل وضع توفير باقة النت',

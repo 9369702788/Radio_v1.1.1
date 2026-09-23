@@ -1,4 +1,5 @@
 import 'package:flutter/material.dart';
+import 'package:flutter/services.dart';
 import 'package:provider/provider.dart';
 import 'package:share_plus/share_plus.dart';
 import '../providers/radio_provider.dart';
@@ -8,6 +9,101 @@ import '../constants/app_strings.dart';
 
 class FavoritesScreen extends StatelessWidget {
   const FavoritesScreen({super.key});
+
+  void _showBackupDialog(BuildContext context, RadioProvider radio) {
+    showModalBottomSheet(
+      context: context,
+      backgroundColor: AppColors.surface,
+      shape: const RoundedRectangleBorder(
+        borderRadius: BorderRadius.vertical(top: Radius.circular(20)),
+      ),
+      builder: (ctx) => Padding(
+        padding: const EdgeInsets.all(20),
+        child: Column(
+          mainAxisSize: MainAxisSize.min,
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: [
+            const Text(
+              'النسخ الاحتياطي والمزامنة 💾',
+              style: TextStyle(color: AppColors.textPrimary, fontSize: 18, fontWeight: FontWeight.bold),
+            ),
+            const SizedBox(height: 12),
+            ListTile(
+              leading: const Icon(Icons.upload, color: AppColors.accent),
+              title: const Text('تصدير نسخة احتياطية (مشاركة/حفظ)', style: TextStyle(color: AppColors.textPrimary)),
+              subtitle: const Text('حفظ جميع إذاعاتك المفضلة والخاصة في ملف backup', style: TextStyle(color: AppColors.textSecondary, fontSize: 12)),
+              onTap: () {
+                Navigator.pop(ctx);
+                final backup = radio.exportBackupJson();
+                Share.share(backup, subject: 'World Radio Backup.json');
+              },
+            ),
+            ListTile(
+              leading: const Icon(Icons.download, color: AppColors.accentPink),
+              title: const Text('استعادة نسخة احتياطية من نص أو ملف', style: TextStyle(color: AppColors.textPrimary)),
+              subtitle: const Text('استرجاع قنواتك المفضلة فوراً عند تغيير الهاتف', style: TextStyle(color: AppColors.textSecondary, fontSize: 12)),
+              onTap: () {
+                Navigator.pop(ctx);
+                _showImportDialog(context, radio);
+              },
+            ),
+          ],
+        ),
+      ),
+    );
+  }
+
+  void _showImportDialog(BuildContext context, RadioProvider radio) {
+    final textCtrl = TextEditingController();
+    showDialog(
+      context: context,
+      builder: (ctx) => AlertDialog(
+        backgroundColor: AppColors.surface,
+        title: const Text('استعادة نسخة احتياطية 📥', style: TextStyle(color: AppColors.textPrimary)),
+        content: Column(
+          mainAxisSize: MainAxisSize.min,
+          children: [
+            const Text('الصق كود النسخة الاحتياطية (JSON) هنا:', style: TextStyle(color: AppColors.textSecondary, fontSize: 13)),
+            const SizedBox(height: 10),
+            TextField(
+              controller: textCtrl,
+              maxLines: 4,
+              style: const TextStyle(color: AppColors.textPrimary, fontSize: 12),
+              decoration: InputDecoration(
+                hintText: '{"app": "World Radio"...}',
+                hintStyle: const TextStyle(color: AppColors.textSecondary),
+                filled: true,
+                fillColor: AppColors.surfaceLight,
+                border: OutlineInputBorder(borderRadius: BorderRadius.circular(10)),
+              ),
+            ),
+          ],
+        ),
+        actions: [
+          TextButton(
+            onPressed: () => Navigator.pop(ctx),
+            child: const Text('إلغاء', style: TextStyle(color: AppColors.textSecondary)),
+          ),
+          ElevatedButton(
+            style: ElevatedButton.styleFrom(backgroundColor: AppColors.primary),
+            onPressed: () async {
+              final count = await radio.importBackupJson(textCtrl.text.trim());
+              Navigator.pop(ctx);
+              if (context.mounted) {
+                ScaffoldMessenger.of(context).showSnackBar(
+                  SnackBar(
+                    content: Text(count >= 0 ? 'تمت استعادة $count إذاعة بنجاح! 🎉' : 'صيغة النسخة غير صالحة'),
+                    backgroundColor: count >= 0 ? AppColors.success : AppColors.error,
+                  ),
+                );
+              }
+            },
+            child: const Text('استعادة الآن', style: TextStyle(color: Colors.white)),
+          ),
+        ],
+      ),
+    );
+  }
 
   @override
   Widget build(BuildContext context) {
@@ -25,6 +121,12 @@ class FavoritesScreen extends StatelessWidget {
             style: TextStyle(color: AppColors.textPrimary, fontWeight: FontWeight.bold),
           ),
           actions: [
+            // Backup & Restore button
+            IconButton(
+              tooltip: 'النسخ الاحتياطي والمزامنة',
+              icon: const Icon(Icons.backup_outlined, color: AppColors.accent),
+              onPressed: () => _showBackupDialog(context, radio),
+            ),
             // Share all favorites
             if (radio.favorites.isNotEmpty)
               IconButton(
