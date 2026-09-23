@@ -261,7 +261,8 @@ class _HomeScreenState extends State<HomeScreen> {
               child: ListView(
                 scrollDirection: Axis.horizontal,
                 padding: const EdgeInsets.symmetric(horizontal: 12),
-                children: _categories.map((cat) {
+                children: [
+                  ..._categories.map((cat) {
                   final isSelected = radio.selectedTag == cat['tag'];
                   return Padding(
                     padding: const EdgeInsets.symmetric(horizontal: 4),
