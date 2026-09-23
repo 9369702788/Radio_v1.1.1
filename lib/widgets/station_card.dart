@@ -11,13 +11,13 @@ class StationCard extends StatelessWidget {
   final VoidCallback onFavoriteToggle;
 
   const StationCard({
-    Key? key,
+    super.key,
     required this.station,
     required this.isCurrent,
     required this.isPlaying,
     required this.onTap,
     required this.onFavoriteToggle,
-  }) : super(key: key);
+  });
 
   @override
   Widget build(BuildContext context) {
@@ -109,6 +109,19 @@ class StationCard extends StatelessWidget {
                               ),
                             ),
                           ),
+                          // Bitrate / HQ badge
+                          if (station.bitrate > 0)
+                            Container(
+                              padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 1),
+                              decoration: BoxDecoration(
+                                color: Colors.white.withOpacity(0.06),
+                                borderRadius: BorderRadius.circular(4),
+                              ),
+                              child: Text(
+                                '${station.bitrate}k',
+                                style: const TextStyle(color: AppColors.accent, fontSize: 10),
+                              ),
+                            ),
                         ],
                       ),
                     ],

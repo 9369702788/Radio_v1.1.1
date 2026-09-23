@@ -1,15 +1,19 @@
+import '../services/widget_service.dart';
 import 'dart:async';
 import 'dart:convert';
+import 'dart:math';
 import 'package:flutter/material.dart';
 import 'package:just_audio/just_audio.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 import '../models/radio_station.dart';
 import '../services/radio_api_service.dart';
 import '../services/audio_service.dart';
+import '../services/recording_service.dart';
 
 class RadioProvider extends ChangeNotifier {
   final RadioApiService _api = RadioApiService();
   final AudioService _audio = AudioService();
+  final RecordingService _recorder = RecordingService();
 
   static const int _batchSize = 500;
 
@@ -28,10 +32,39 @@ class RadioProvider extends ChangeNotifier {
   List<RadioStation> _searchResults = [];
   bool _isSearching = false;
 
-  // Favorites & History
+  // Favorites & History & Custom
   List<RadioStation> _favorites = [];
   final List<RadioStation> _history = [];
+  List<RadioStation> _customStations = [];
 
+  // Live Metadata (Song/Program name)
+  String? _liveMetadataTitle;
+  String? get liveMetadataTitle => _liveMetadataTitle;
+
+  // Recording
+  Timer? _recordingTimer;
+  Duration _recordingDuration = Duration.zero;
+  List<RecordingItem> _recordingsList = [];
+
+  bool get isRecording => _recorder.isRecording;
+  Duration get recordingDuration => _recordingDuration;
+  List<RecordingItem> get recordingsList => _recordingsList;
+
+  // Sound Mode / Audio FX
+  String _soundMode = 'طبيعي'; // طبيعي, صوت نقي (قرآن/أحاديث), موسيقى غنية
+  String get soundMode => _soundMode;
+
+  // Alarm Clock State
+  bool _alarmEnabled = false;
+  TimeOfDay? _alarmTime;
+  RadioStation? _alarmStation;
+  Timer? _alarmCheckTimer;
+
+  bool get alarmEnabled => _alarmEnabled;
+  TimeOfDay? get alarmTime => _alarmTime;
+  RadioStation? get alarmStation => _alarmStation;
+
+  // Player & App State
   RadioStation? _currentStation;
   String? _errorMessage;
   double _volume = 1.0;
@@ -51,6 +84,7 @@ class RadioProvider extends ChangeNotifier {
   List<RadioStation> get searchResults => _searchResults;
   List<RadioStation> get favorites => _favorites;
   List<RadioStation> get history => _history;
+  List<RadioStation> get customStations => _customStations;
   RadioStation? get currentStation => _currentStation;
   String? get errorMessage => _errorMessage;
   double get volume => _volume;
@@ -65,15 +99,29 @@ class RadioProvider extends ChangeNotifier {
       _playerState?.processingState == ProcessingState.loading;
 
   RadioProvider() {
-    _initAudioListener();
+    _initAudioListeners();
     loadFavorites();
+    loadCustomStations();
+    loadAlarm();
     loadTopStations();
+    refreshRecordings();
+    _startAlarmChecker();
+    WidgetService.setWidgetListener(() => togglePlayPause());
   }
 
-  void _initAudioListener() {
+  void _initAudioListeners() {
     _audio.playerStateStream.listen((state) {
       _playerState = state;
       notifyListeners();
+      _syncWidget();
+    });
+
+    _audio.icyMetadataStream.listen((metadata) {
+      final title = metadata?.info?.title;
+      if (title != null && title.trim().isNotEmpty && title != _liveMetadataTitle) {
+        _liveMetadataTitle = title.trim();
+        notifyListeners();
+      }
     });
   }
 
@@ -178,7 +226,6 @@ class RadioProvider extends ChangeNotifier {
       if (nextBatch.isEmpty) {
         _hasMore = false;
       } else {
-        // Prevent duplicates
         final existingIds = _homeStations.map((s) => s.uuid).toSet();
         final filteredBatch = nextBatch.where((s) => !existingIds.contains(s.uuid)).toList();
         _homeStations.addAll(filteredBatch);
@@ -186,11 +233,22 @@ class RadioProvider extends ChangeNotifier {
         _hasMore = nextBatch.length >= _batchSize;
       }
     } catch (_) {
-      // Keep existing list on pagination error
     } finally {
       _isLoadingMore = false;
       notifyListeners();
     }
+  }
+
+  // Pick and play a random station (Surprise Me 🎲)
+  Future<RadioStation?> playRandomStation() async {
+    if (_homeStations.isNotEmpty) {
+      final random = Random();
+      final randomIndex = random.nextInt(_homeStations.length);
+      final station = _homeStations[randomIndex];
+      await playStation(station);
+      return station;
+    }
+    return null;
   }
 
   // Search Screen search
@@ -217,8 +275,14 @@ class RadioProvider extends ChangeNotifier {
     }
   }
 
+  // Playback Control
   Future<void> playStation(RadioStation station) async {
+    if (isRecording) {
+      await stopRecording();
+    }
+
     _currentStation = station;
+    _liveMetadataTitle = null;
     _errorMessage = null;
     notifyListeners();
 
@@ -243,6 +307,9 @@ class RadioProvider extends ChangeNotifier {
   }
 
   Future<void> stop() async {
+    if (isRecording) {
+      await stopRecording();
+    }
     await _audio.stop();
     notifyListeners();
   }
@@ -253,6 +320,153 @@ class RadioProvider extends ChangeNotifier {
     notifyListeners();
   }
 
+  // Sound Mode / Equalizer
+  void setSoundMode(String mode) {
+    _soundMode = mode;
+    if (mode == 'صوت نقي (قرآن/كلام)') {
+      _audio.setSpeed(1.0);
+    } else if (mode == 'موسيقى غنية') {
+      _audio.setSpeed(1.0);
+    } else {
+      _audio.setSpeed(1.0);
+    }
+    notifyListeners();
+  }
+
+  // Recording Stream Feature 🔴
+  Future<bool> startRecording() async {
+    if (_currentStation == null) return false;
+    try {
+      await _recorder.startRecording(_currentStation!);
+      _recordingDuration = Duration.zero;
+      _recordingTimer?.cancel();
+      _recordingTimer = Timer.periodic(const Duration(seconds: 1), (timer) {
+        _recordingDuration = Duration(seconds: timer.tick);
+        notifyListeners();
+      });
+      notifyListeners();
+      return true;
+    } catch (e) {
+      return false;
+    }
+  }
+
+  Future<String?> stopRecording() async {
+    _recordingTimer?.cancel();
+    _recordingTimer = null;
+    final path = await _recorder.stopRecording();
+    _recordingDuration = Duration.zero;
+    await refreshRecordings();
+    notifyListeners();
+    return path;
+  }
+
+  Future<void> refreshRecordings() async {
+    _recordingsList = await _recorder.getRecordings();
+    notifyListeners();
+  }
+
+  Future<void> deleteRecording(String path) async {
+    await _recorder.deleteRecording(path);
+    await refreshRecordings();
+  }
+
+  // Radio Alarm Clock ⏰
+  Future<void> setAlarm({required TimeOfDay time, required RadioStation station}) async {
+    _alarmTime = time;
+    _alarmStation = station;
+    _alarmEnabled = true;
+
+    final prefs = await SharedPreferences.getInstance();
+    await prefs.setInt('alarm_hour', time.hour);
+    await prefs.setInt('alarm_minute', time.minute);
+    await prefs.setString('alarm_station', json.encode(station.toJson()));
+    await prefs.setBool('alarm_enabled', true);
+
+    notifyListeners();
+  }
+
+  Future<void> cancelAlarm() async {
+    _alarmEnabled = false;
+    final prefs = await SharedPreferences.getInstance();
+    await prefs.setBool('alarm_enabled', false);
+    notifyListeners();
+  }
+
+  Future<void> loadAlarm() async {
+    final prefs = await SharedPreferences.getInstance();
+    final enabled = prefs.getBool('alarm_enabled') ?? false;
+    if (enabled) {
+      final hour = prefs.getInt('alarm_hour') ?? 7;
+      final minute = prefs.getInt('alarm_minute') ?? 0;
+      final stationJson = prefs.getString('alarm_station');
+      if (stationJson != null) {
+        _alarmTime = TimeOfDay(hour: hour, minute: minute);
+        _alarmStation = RadioStation.fromJson(json.decode(stationJson));
+        _alarmEnabled = true;
+        notifyListeners();
+      }
+    }
+  }
+
+  void _startAlarmChecker() {
+    _alarmCheckTimer?.cancel();
+    _alarmCheckTimer = Timer.periodic(const Duration(seconds: 30), (_) {
+      if (_alarmEnabled && _alarmTime != null && _alarmStation != null) {
+        final now = DateTime.now();
+        if (now.hour == _alarmTime!.hour && now.minute == _alarmTime!.minute) {
+          if (!isPlaying || _currentStation?.uuid != _alarmStation!.uuid) {
+            playStation(_alarmStation!);
+          }
+        }
+      }
+    });
+  }
+
+  // Custom Station URL ➕
+  Future<void> addCustomStation({
+    required String name,
+    required String url,
+    String? country,
+    String? favicon,
+  }) async {
+    final customStation = RadioStation(
+      uuid: 'custom_${DateTime.now().millisecondsSinceEpoch}',
+      name: name.trim(),
+      url: url.trim(),
+      country: country?.trim() ?? 'محطة خاصة',
+      countryCode: '★',
+      language: 'العربية',
+      favicon: favicon?.trim() ?? '',
+      tags: ['خاصة', 'custom'],
+      isFavorite: true,
+    );
+
+    _customStations.insert(0, customStation);
+    _favorites.insert(0, customStation);
+    _homeStations.insert(0, customStation);
+
+    final prefs = await SharedPreferences.getInstance();
+    final jsonList = _customStations.map((e) => e.toJson()).toList();
+    await prefs.setString('world_radio_custom', json.encode(jsonList));
+
+    await _saveFavoritesToPrefs();
+    notifyListeners();
+  }
+
+  Future<void> loadCustomStations() async {
+    final prefs = await SharedPreferences.getInstance();
+    final data = prefs.getString('world_radio_custom');
+    if (data != null) {
+      try {
+        final List<dynamic> decoded = json.decode(data);
+        _customStations = decoded.map((e) => RadioStation.fromJson(e)).toList();
+        notifyListeners();
+      } catch (_) {}
+    }
+  }
+
+  // Sleep Timer
   void setSleepTimer(int minutes) {
     _sleepTimer?.cancel();
     if (minutes <= 0) {
@@ -325,4 +539,113 @@ class RadioProvider extends ChangeNotifier {
       } catch (_) {}
     }
   }
+
+  // Data Saver Mode (filter streams <= 96kbps or reduce data)
+  bool _dataSaverMode = false;
+  bool get dataSaverMode => _dataSaverMode;
+
+  void toggleDataSaverMode() {
+    _dataSaverMode = !_dataSaverMode;
+    notifyListeners();
+  }
+
+  // Switch between Favorites (Car Mode / Next / Prev)
+  void playNextFavorite() {
+    if (_favorites.isEmpty) return;
+    int currentIndex = _favorites.indexWhere((s) => s.uuid == _currentStation?.uuid);
+    int nextIndex = (currentIndex + 1) % _favorites.length;
+    playStation(_favorites[nextIndex]);
+  }
+
+  void playPreviousFavorite() {
+    if (_favorites.isEmpty) return;
+    int currentIndex = _favorites.indexWhere((s) => s.uuid == _currentStation?.uuid);
+    int prevIndex = (currentIndex - 1 + _favorites.length) % _favorites.length;
+    playStation(_favorites[prevIndex]);
+  }
+
+  // Clear History
+  void clearHistory() {
+    _history.clear();
+    notifyListeners();
+  }
+
+
+  void _syncWidget() {
+    WidgetService.updateWidget(
+      name: _currentStation?.name ?? 'World Radio',
+      country: isPlaying ? (_liveMetadataTitle ?? _currentStation?.country ?? 'بث مباشر') : 'متوقف مؤقتاً',
+      isPlaying: isPlaying,
+    );
+  }
+
+
+  // Equalizer & Audio FX State 🎛️
+  double _bassGain = 0.0; // -10 to +10 dB
+  double _midGain = 0.0;
+  double _trebleGain = 0.0;
+  double _bassBoost = 0.0; // 0.0 to 1.0 (0% to 100%)
+  String _activePreset = 'طبيعي';
+
+  double get bassGain => _bassGain;
+  double get midGain => _midGain;
+  double get trebleGain => _trebleGain;
+  double get bassBoost => _bassBoost;
+  String get activePreset => _activePreset;
+
+  void setEqualizerBands({double? bass, double? mid, double? treble}) {
+    if (bass != null) _bassGain = bass;
+    if (mid != null) _midGain = mid;
+    if (treble != null) _trebleGain = treble;
+    _activePreset = 'مخصص';
+    notifyListeners();
+  }
+
+  void setBassBoost(double val) {
+    _bassBoost = val.clamp(0.0, 1.0);
+    notifyListeners();
+  }
+
+  void applyEqualizerPreset(String preset) {
+    _activePreset = preset;
+    switch (preset) {
+      case 'قرآن / صوت نقي':
+        _bassGain = -2.0;
+        _midGain = 4.0;
+        _trebleGain = 3.0;
+        _bassBoost = 0.0;
+        break;
+      case 'بيز قوي (Bass Boost)':
+        _bassGain = 7.0;
+        _midGain = 1.0;
+        _trebleGain = 0.0;
+        _bassBoost = 0.8;
+        break;
+      case 'كلاسيك':
+        _bassGain = 4.0;
+        _midGain = -1.0;
+        _trebleGain = 3.0;
+        _bassBoost = 0.2;
+        break;
+      case 'بوب':
+        _bassGain = 3.0;
+        _midGain = 2.0;
+        _trebleGain = 4.0;
+        _bassBoost = 0.4;
+        break;
+      case 'جاز':
+        _bassGain = 2.0;
+        _midGain = 0.0;
+        _trebleGain = 2.0;
+        _bassBoost = 0.3;
+        break;
+      default: // طبيعي
+        _bassGain = 0.0;
+        _midGain = 0.0;
+        _trebleGain = 0.0;
+        _bassBoost = 0.0;
+    }
+    notifyListeners();
+  }
+
 }

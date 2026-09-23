@@ -46,5 +46,10 @@ class AudioService {
     await _player.setVolume(volume.clamp(0.0, 1.0));
   }
 
+  Future<void> setSpeed(double speed) async {
+    await _player.setSpeed(speed);
+  }
+
   Stream<PlayerState> get playerStateStream => _player.playerStateStream;
+  Stream<IcyMetadata?> get icyMetadataStream => _player.icyMetadataStream;
 }

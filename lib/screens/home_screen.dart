@@ -73,6 +73,85 @@ class _HomeScreenState extends State<HomeScreen> {
     }
   }
 
+  void _showAddCustomStationDialog(BuildContext context) {
+    final nameCtrl = TextEditingController();
+    final urlCtrl = TextEditingController();
+    final countryCtrl = TextEditingController();
+
+    showDialog(
+      context: context,
+      builder: (ctx) => AlertDialog(
+        backgroundColor: AppColors.surface,
+        shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(18)),
+        title: const Text(
+          'إضافة إذاعة خاصة ➕',
+          style: TextStyle(color: AppColors.textPrimary, fontWeight: FontWeight.bold),
+        ),
+        content: SingleChildScrollView(
+          child: Column(
+            mainAxisSize: MainAxisSize.min,
+            children: [
+              TextField(
+                controller: nameCtrl,
+                style: const TextStyle(color: AppColors.textPrimary),
+                decoration: const InputDecoration(
+                  labelText: 'اسم الإذاعة *',
+                  labelStyle: TextStyle(color: AppColors.textSecondary),
+                ),
+              ),
+              const SizedBox(height: 12),
+              TextField(
+                controller: urlCtrl,
+                style: const TextStyle(color: AppColors.textPrimary),
+                decoration: const InputDecoration(
+                  labelText: 'رابط البث المباشر (Stream URL) *',
+                  labelStyle: TextStyle(color: AppColors.textSecondary),
+                  hintText: 'https://...',
+                  hintStyle: TextStyle(color: AppColors.textSecondary, fontSize: 12),
+                ),
+              ),
+              const SizedBox(height: 12),
+              TextField(
+                controller: countryCtrl,
+                style: const TextStyle(color: AppColors.textPrimary),
+                decoration: const InputDecoration(
+                  labelText: 'الدولة (اختياري)',
+                  labelStyle: TextStyle(color: AppColors.textSecondary),
+                ),
+              ),
+            ],
+          ),
+        ),
+        actions: [
+          TextButton(
+            onPressed: () => Navigator.pop(ctx),
+            child: const Text('إلغاء', style: TextStyle(color: AppColors.textSecondary)),
+          ),
+          ElevatedButton(
+            style: ElevatedButton.styleFrom(backgroundColor: AppColors.primary),
+            onPressed: () {
+              if (nameCtrl.text.trim().isNotEmpty && urlCtrl.text.trim().isNotEmpty) {
+                context.read<RadioProvider>().addCustomStation(
+                  name: nameCtrl.text.trim(),
+                  url: urlCtrl.text.trim(),
+                  country: countryCtrl.text.trim(),
+                );
+                Navigator.pop(ctx);
+                ScaffoldMessenger.of(context).showSnackBar(
+                  const SnackBar(
+                    content: Text('تمت إضافة الإذاعة بنجاح إلى المفضلة والرئيسية! 🎉'),
+                    backgroundColor: AppColors.success,
+                  ),
+                );
+              }
+            },
+            child: const Text('إضافة الإذاعة', style: TextStyle(color: Colors.white)),
+          ),
+        ],
+      ),
+    );
+  }
+
   @override
   Widget build(BuildContext context) {
     final radio = context.watch<RadioProvider>();
@@ -104,6 +183,51 @@ class _HomeScreenState extends State<HomeScreen> {
           ],
         ),
         actions: [
+          // Data Saver Mode Button 📶
+          IconButton(
+            tooltip: radio.dataSaverMode ? 'وضع توفير الباقة مفعل (بث خفيف)' : 'تفعيل وضع توفير باقة النت',
+            icon: Icon(
+              radio.dataSaverMode ? Icons.data_saver_on : Icons.data_saver_off,
+              color: radio.dataSaverMode ? AppColors.accent : AppColors.textSecondary,
+            ),
+            onPressed: () {
+              radio.toggleDataSaverMode();
+              ScaffoldMessenger.of(context).showSnackBar(
+                SnackBar(
+                  content: Text(
+                    radio.dataSaverMode
+                        ? 'تم تفعيل وضع توفير الباقة 📶 (تفضيل البث الخفيف)'
+                        : 'تم تعطيل وضع توفير الباقة (جودة فائقة)',
+                  ),
+                  duration: const Duration(seconds: 2),
+                  backgroundColor: radio.dataSaverMode ? AppColors.accent : AppColors.surfaceLight,
+                ),
+              );
+            },
+          ),
+          // Add Custom Station Button
+          IconButton(
+            tooltip: 'إضافة إذاعة خاصة برابط مخصص',
+            icon: const Icon(Icons.add_circle_outline, color: AppColors.accent),
+            onPressed: () => _showAddCustomStationDialog(context),
+          ),
+          // Surprise Me Button 🎲
+          IconButton(
+            tooltip: 'محطة عشوائية حول العالم',
+            icon: const Icon(Icons.casino_outlined, color: AppColors.accentPink),
+            onPressed: () async {
+              final st = await radio.playRandomStation();
+              if (context.mounted && st != null) {
+                ScaffoldMessenger.of(context).showSnackBar(
+                  SnackBar(
+                    content: Text('إذاعة عشوائية: ${st.name} (${st.country}) 🎲'),
+                    backgroundColor: AppColors.primary,
+                  ),
+                );
+              }
+            },
+          ),
+          // Refresh
           IconButton(
             tooltip: 'تحديث واسترجاع كل إذاعات العالم',
             icon: const Icon(Icons.refresh, color: AppColors.textSecondary),
@@ -255,7 +379,7 @@ class _HomeScreenState extends State<HomeScreen> {
               ),
             ),
 
-            // Categories Horizontal List using collection-for
+            // Categories Horizontal List
             SizedBox(
               height: 44,
               child: ListView(
@@ -377,7 +501,9 @@ class _HomeScreenState extends State<HomeScreen> {
                 ),
               )
             else ...[
-              for (final station in radio.homeStations)
+              for (final station in (radio.dataSaverMode 
+                  ? radio.homeStations.where((s) => s.bitrate <= 128).toList() 
+                  : radio.homeStations))
                 StationCard(
                   station: station,
                   isCurrent: radio.currentStation?.uuid == station.uuid,

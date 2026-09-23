@@ -5,6 +5,7 @@ import 'providers/radio_provider.dart';
 import 'screens/home_screen.dart';
 import 'screens/search_screen.dart';
 import 'screens/favorites_screen.dart';
+import 'screens/recordings_screen.dart';
 import 'widgets/mini_player.dart';
 import 'widgets/background_widget.dart';
 import 'constants/app_colors.dart';
@@ -35,7 +36,6 @@ class WorldRadioApp extends StatelessWidget {
             primary: AppColors.primary,
             secondary: AppColors.accent,
             surface: AppColors.surface,
-            
           ),
           fontFamily: 'Roboto',
         ),
@@ -59,6 +59,7 @@ class _MainNavigationScreenState extends State<MainNavigationScreen> {
     HomeScreen(),
     SearchScreen(),
     FavoritesScreen(),
+    RecordingsScreen(),
   ];
 
   @override
@@ -100,6 +101,11 @@ class _MainNavigationScreenState extends State<MainNavigationScreen> {
                     icon: Icon(Icons.favorite_outline),
                     selectedIcon: Icon(Icons.favorite, color: AppColors.accentPink),
                     label: 'المفضلة',
+                  ),
+                  NavigationDestination(
+                    icon: Icon(Icons.mic_none_outlined),
+                    selectedIcon: Icon(Icons.mic, color: AppColors.accent),
+                    label: 'التسجيلات',
                   ),
                 ],
               ),

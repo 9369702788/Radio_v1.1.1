@@ -23,14 +23,17 @@ class MiniPlayer extends StatelessWidget {
       },
       child: Container(
         height: 68,
-        margin: const EdgeInsets.fromLTRB(12, 0, 12, 10),
+        margin: const EdgeInsets.fromLTRB(12, 0, 12, 8),
         decoration: BoxDecoration(
           color: AppColors.surfaceLight.withOpacity(0.96),
           borderRadius: BorderRadius.circular(18),
-          border: Border.all(color: AppColors.accent.withOpacity(0.5), width: 1.2),
+          border: Border.all(
+            color: radio.isRecording ? AppColors.error : AppColors.accent.withOpacity(0.5),
+            width: 1.2,
+          ),
           boxShadow: [
             BoxShadow(
-              color: AppColors.accent.withOpacity(0.2),
+              color: (radio.isRecording ? AppColors.error : AppColors.accent).withOpacity(0.2),
               blurRadius: 12,
               offset: const Offset(0, 4),
             ),
@@ -73,14 +76,25 @@ class MiniPlayer extends StatelessWidget {
                     ),
                     const SizedBox(height: 2),
                     Text(
-                      radio.isBuffering
-                          ? 'جاري التحميل...'
-                          : radio.isPlaying
-                              ? 'بث مباشر الآن'
-                              : 'متوقف مؤقتاً',
+                      radio.isRecording
+                          ? '🔴 جاري التسجيل...'
+                          : (radio.liveMetadataTitle != null && radio.liveMetadataTitle!.isNotEmpty)
+                              ? radio.liveMetadataTitle!
+                              : radio.isBuffering
+                                  ? 'جاري التحميل...'
+                                  : radio.isPlaying
+                                      ? 'بث مباشر الآن'
+                                      : 'متوقف مؤقتاً',
+                      maxLines: 1,
+                      overflow: TextOverflow.ellipsis,
                       style: TextStyle(
-                        color: radio.isPlaying ? AppColors.accent : AppColors.textSecondary,
+                        color: radio.isRecording
+                            ? AppColors.error
+                            : radio.isPlaying
+                                ? AppColors.accent
+                                : AppColors.textSecondary,
                         fontSize: 11,
+                        fontWeight: radio.isRecording ? FontWeight.bold : FontWeight.normal,
                       ),
                     ),
                   ],
