@@ -205,31 +205,31 @@ class _HomeScreenState extends State<HomeScreen> {
                       onSelected: (_) => radio.loadTopStations(),
                     ),
                   ),
-                  ..._quickCountries.map((c) {
-                    final isSelected = radio.selectedCountryCode == c['code'];
-                    return Padding(
+                  for (final c in _quickCountries)
+                    Padding(
                       padding: const EdgeInsets.symmetric(horizontal: 4),
                       child: FilterChip(
-                        selected: isSelected,
+                        selected: radio.selectedCountryCode == c['code'],
                         showCheckmark: false,
                         selectedColor: AppColors.accent,
                         backgroundColor: AppColors.surface,
                         side: BorderSide(
-                          color: isSelected ? AppColors.accent : AppColors.cardBorder,
-                          width: isSelected ? 1.5 : 1.0,
+                          color: (radio.selectedCountryCode == c['code'])
+                              ? AppColors.accent
+                              : AppColors.cardBorder,
+                          width: (radio.selectedCountryCode == c['code']) ? 1.5 : 1.0,
                         ),
                         label: Text(
                           '${c['flag']}  ${c['name']}',
                           style: TextStyle(
-                            color: isSelected ? Colors.black87 : AppColors.textPrimary,
-                            fontWeight: isSelected ? FontWeight.bold : FontWeight.normal,
+                            color: (radio.selectedCountryCode == c['code']) ? Colors.black87 : AppColors.textPrimary,
+                            fontWeight: (radio.selectedCountryCode == c['code']) ? FontWeight.bold : FontWeight.normal,
                             fontSize: 12,
                           ),
                         ),
                         onSelected: (_) => radio.filterByCountry(c['code']!, c['name']!),
                       ),
-                    );
-                  }),
+                    ),
                 ],
               ),
             ),
@@ -255,38 +255,37 @@ class _HomeScreenState extends State<HomeScreen> {
               ),
             ),
 
-            // Categories Horizontal List
+            // Categories Horizontal List using collection-for
             SizedBox(
               height: 44,
               child: ListView(
                 scrollDirection: Axis.horizontal,
                 padding: const EdgeInsets.symmetric(horizontal: 12),
                 children: [
-                  ..._categories.map((cat) {
-                  final isSelected = radio.selectedTag == cat['tag'];
-                  return Padding(
-                    padding: const EdgeInsets.symmetric(horizontal: 4),
-                    child: FilterChip(
-                      selected: isSelected,
-                      showCheckmark: false,
-                      selectedColor: AppColors.primary,
-                      backgroundColor: AppColors.surface,
-                      side: BorderSide(
-                        color: isSelected ? AppColors.primary : AppColors.cardBorder,
-                        width: isSelected ? 1.5 : 1.0,
-                      ),
-                      label: Text(
-                        '${cat['icon']}  ${cat['name']}',
-                        style: TextStyle(
-                          color: isSelected ? Colors.white : AppColors.textPrimary,
-                          fontWeight: isSelected ? FontWeight.bold : FontWeight.normal,
-                          fontSize: 12,
+                  for (final cat in _categories)
+                    Padding(
+                      padding: const EdgeInsets.symmetric(horizontal: 4),
+                      child: FilterChip(
+                        selected: radio.selectedTag == cat['tag'],
+                        showCheckmark: false,
+                        selectedColor: AppColors.primary,
+                        backgroundColor: AppColors.surface,
+                        side: BorderSide(
+                          color: (radio.selectedTag == cat['tag']) ? AppColors.primary : AppColors.cardBorder,
+                          width: (radio.selectedTag == cat['tag']) ? 1.5 : 1.0,
                         ),
+                        label: Text(
+                          '${cat['icon']}  ${cat['name']}',
+                          style: TextStyle(
+                            color: (radio.selectedTag == cat['tag']) ? Colors.white : AppColors.textPrimary,
+                            fontWeight: (radio.selectedTag == cat['tag']) ? FontWeight.bold : FontWeight.normal,
+                            fontSize: 12,
+                          ),
+                        ),
+                        onSelected: (_) => radio.filterByTag(cat['tag']!, cat['name']!),
                       ),
-                      onSelected: (_) => radio.filterByTag(cat['tag']!, cat['name']!),
                     ),
-                  );
-                }),
+                ],
               ),
             ),
 
@@ -378,24 +377,23 @@ class _HomeScreenState extends State<HomeScreen> {
                 ),
               )
             else ...[
-              ...radio.homeStations.map(
-                (station) => StationCard(
+              for (final station in radio.homeStations)
+                StationCard(
                   station: station,
                   isCurrent: radio.currentStation?.uuid == station.uuid,
                   isPlaying: radio.isPlaying,
                   onTap: () => radio.playStation(station),
                   onFavoriteToggle: () => radio.toggleFavorite(station),
                 ),
-              ),
 
               // Bottom Loader for Infinite Scroll
               if (radio.isLoadingMore)
-                Padding(
-                  padding: const EdgeInsets.symmetric(vertical: 20),
+                const Padding(
+                  padding: EdgeInsets.symmetric(vertical: 20),
                   child: Center(
                     child: Row(
                       mainAxisAlignment: MainAxisAlignment.center,
-                      children: const [
+                      children: [
                         SizedBox(
                           width: 18,
                           height: 18,
