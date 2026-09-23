@@ -1,4 +1,4 @@
-name: Build & Release World Radio APK
+name: Build & Release World Radio (Android & Windows)
 
 on:
   push:
@@ -8,8 +8,8 @@ on:
   workflow_dispatch:
 
 jobs:
-  build:
-    name: Build APK and AppBundle
+  build-android:
+    name: Build Android APK & AppBundle
     runs-on: ubuntu-latest
 
     steps:
