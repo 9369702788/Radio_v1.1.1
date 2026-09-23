@@ -16,14 +16,13 @@ class RadioApiService {
     _mirrorIndex = (_mirrorIndex + 1) % _mirrors.length;
   }
 
-  Future<List<RadioStation>> _fetch(String endpoint) async {
+  Future<List<RadioStation>> _fetchUri(Uri uri) async {
     for (int attempt = 0; attempt < _mirrors.length; attempt++) {
       try {
-        final url = Uri.parse('$_currentBaseUrl/$endpoint');
         final response = await http.get(
-          url,
-          headers: {'User-Agent': 'WorldRadioApp/1.0.0'},
-        ).timeout(const Duration(seconds: 12));
+          uri,
+          headers: {'User-Agent': 'WorldRadioApp/1.2.0'},
+        ).timeout(const Duration(seconds: 15));
 
         if (response.statusCode == 200) {
           final List<dynamic> data = json.decode(utf8.decode(response.bodyBytes));
@@ -39,27 +38,59 @@ class RadioApiService {
     return [];
   }
 
-  Future<List<RadioStation>> getTopStations({int limit = 60}) async {
-    return _fetch('stations/topvote?limit=$limit&hidebroken=true');
+  // Unified stations search with massive limits & pagination support
+  Future<List<RadioStation>> getStations({
+    String? name,
+    String? countryCode,
+    String? tag,
+    String? language,
+    String order = 'clickcount',
+    bool reverse = true,
+    int limit = 500,
+    int offset = 0,
+  }) async {
+    final Map<String, String> params = {
+      'limit': limit.toString(),
+      'offset': offset.toString(),
+      'hidebroken': 'true',
+      'order': order,
+      'reverse': reverse ? 'true' : 'false',
+    };
+
+    if (name != null && name.trim().isNotEmpty) {
+      params['name'] = name.trim();
+    }
+    if (countryCode != null && countryCode.trim().isNotEmpty) {
+      params['countrycode'] = countryCode.trim().toUpperCase();
+    }
+    if (tag != null && tag.trim().isNotEmpty) {
+      params['tag'] = tag.trim().toLowerCase();
+    }
+    if (language != null && language.trim().isNotEmpty) {
+      params['language'] = language.trim().toLowerCase();
+    }
+
+    final uri = Uri.parse('$_currentBaseUrl/stations/search').replace(queryParameters: params);
+    return _fetchUri(uri);
   }
 
-  Future<List<RadioStation>> searchStations(String query, {int limit = 60}) async {
-    final cleanQuery = Uri.encodeComponent(query.trim());
-    return _fetch('stations/byname/$cleanQuery?limit=$limit&hidebroken=true&order=votes&reverse=true');
+  // Top global stations
+  Future<List<RadioStation>> getTopStations({int limit = 500, int offset = 0}) async {
+    return getStations(order: 'clickcount', limit: limit, offset: offset);
   }
 
-  Future<List<RadioStation>> getStationsByCountry(String countryCode, {int limit = 60}) async {
-    final code = countryCode.trim().toUpperCase();
-    return _fetch('stations/bycountrycodeexact/$code?limit=$limit&hidebroken=true&order=votes&reverse=true');
+  // Search by text
+  Future<List<RadioStation>> searchStations(String query, {int limit = 500, int offset = 0}) async {
+    return getStations(name: query, limit: limit, offset: offset);
   }
 
-  Future<List<RadioStation>> getStationsByTag(String tag, {int limit = 60}) async {
-    final cleanTag = Uri.encodeComponent(tag.trim().toLowerCase());
-    return _fetch('stations/bytag/$cleanTag?limit=$limit&hidebroken=true&order=votes&reverse=true');
+  // Stations by country
+  Future<List<RadioStation>> getStationsByCountry(String countryCode, {int limit = 500, int offset = 0}) async {
+    return getStations(countryCode: countryCode, order: 'clickcount', limit: limit, offset: offset);
   }
 
-  Future<List<RadioStation>> getStationsByLanguage(String language, {int limit = 60}) async {
-    final cleanLang = Uri.encodeComponent(language.trim().toLowerCase());
-    return _fetch('stations/bylanguage/$cleanLang?limit=$limit&hidebroken=true&order=votes&reverse=true');
+  // Stations by tag
+  Future<List<RadioStation>> getStationsByTag(String tag, {int limit = 500, int offset = 0}) async {
+    return getStations(tag: tag, order: 'clickcount', limit: limit, offset: offset);
   }
 }

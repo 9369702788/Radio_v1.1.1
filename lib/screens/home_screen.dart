@@ -5,28 +5,73 @@ import '../widgets/station_card.dart';
 import '../constants/app_colors.dart';
 import '../constants/app_strings.dart';
 
-class HomeScreen extends StatelessWidget {
+class HomeScreen extends StatefulWidget {
   const HomeScreen({super.key});
+
+  @override
+  State<HomeScreen> createState() => _HomeScreenState();
+}
+
+class _HomeScreenState extends State<HomeScreen> {
+  final ScrollController _scrollController = ScrollController();
 
   static const List<Map<String, String>> _quickCountries = [
     {'name': 'مصر', 'code': 'EG', 'flag': '🇪🇬'},
     {'name': 'السعودية', 'code': 'SA', 'flag': '🇸🇦'},
     {'name': 'الإمارات', 'code': 'AE', 'flag': '🇦🇪'},
     {'name': 'المغرب', 'code': 'MA', 'flag': '🇲🇦'},
+    {'name': 'الجزائر', 'code': 'DZ', 'flag': '🇩🇿'},
+    {'name': 'الأردن', 'code': 'JO', 'flag': '🇯🇴'},
+    {'name': 'تونس', 'code': 'TN', 'flag': '🇹🇳'},
+    {'name': 'العراق', 'code': 'IQ', 'flag': '🇮🇶'},
+    {'name': 'الكويت', 'code': 'KW', 'flag': '🇰🇼'},
+    {'name': 'قطر', 'code': 'QA', 'flag': '🇶🇦'},
+    {'name': 'عُمان', 'code': 'OM', 'flag': '🇴🇲'},
+    {'name': 'لبنان', 'code': 'LB', 'flag': '🇱🇧'},
+    {'name': 'فلسطين', 'code': 'PS', 'flag': '🇵🇸'},
     {'name': 'بريطانيا', 'code': 'GB', 'flag': '🇬🇧'},
     {'name': 'أمريكا', 'code': 'US', 'flag': '🇺🇸'},
     {'name': 'فرنسا', 'code': 'FR', 'flag': '🇫🇷'},
     {'name': 'ألمانيا', 'code': 'DE', 'flag': '🇩🇪'},
+    {'name': 'تركيا', 'code': 'TR', 'flag': '🇹🇷'},
+    {'name': 'إسبانيا', 'code': 'ES', 'flag': '🇪🇸'},
+    {'name': 'روسيا', 'code': 'RU', 'flag': '🇷🇺'},
+    {'name': 'إيطاليا', 'code': 'IT', 'flag': '🇮🇹'},
+    {'name': 'البرازيل', 'code': 'BR', 'flag': '🇧🇷'},
   ];
 
   static const List<Map<String, String>> _categories = [
     {'name': 'قرآن كريم', 'tag': 'quran', 'icon': '📖'},
+    {'name': 'إذاعات إسلامية', 'tag': 'islamic', 'icon': '🕌'},
     {'name': 'أخبار', 'tag': 'news', 'icon': '📰'},
-    {'name': 'موسيقى كلاسيكية', 'tag': 'classical', 'icon': '🎻'},
+    {'name': 'إذاعات عربية', 'tag': 'arabic', 'icon': '🎙️'},
+    {'name': 'رياضة', 'tag': 'sports', 'icon': '⚽'},
+    {'name': 'كلاسيك', 'tag': 'classical', 'icon': '🎻'},
     {'name': 'بوب', 'tag': 'pop', 'icon': '🎸'},
     {'name': 'جاز', 'tag': 'jazz', 'icon': '🎷'},
-    {'name': 'رياضة', 'tag': 'sports', 'icon': '⚽'},
+    {'name': 'روك', 'tag': 'rock', 'icon': '🥁'},
+    {'name': 'إذاعات دينية', 'tag': 'religious', 'icon': '🤲'},
+    {'name': 'أطفال', 'tag': 'kids', 'icon': '🎈'},
+    {'name': 'حديث وتوك شو', 'tag': 'talk', 'icon': '💬'},
   ];
+
+  @override
+  void initState() {
+    super.initState();
+    _scrollController.addListener(_onScroll);
+  }
+
+  @override
+  void dispose() {
+    _scrollController.dispose();
+    super.dispose();
+  }
+
+  void _onScroll() {
+    if (_scrollController.position.pixels >= _scrollController.position.maxScrollExtent - 400) {
+      context.read<RadioProvider>().loadMoreHomeStations();
+    }
+  }
 
   @override
   Widget build(BuildContext context) {
@@ -60,6 +105,7 @@ class HomeScreen extends StatelessWidget {
         ),
         actions: [
           IconButton(
+            tooltip: 'تحديث واسترجاع كل إذاعات العالم',
             icon: const Icon(Icons.refresh, color: AppColors.textSecondary),
             onPressed: () => radio.loadTopStations(),
           ),
@@ -69,18 +115,20 @@ class HomeScreen extends StatelessWidget {
         onRefresh: () => radio.loadTopStations(),
         color: AppColors.accent,
         child: ListView(
+          controller: _scrollController,
           padding: const EdgeInsets.only(bottom: 90),
           children: [
+            // Hero Banner
             Container(
-              margin: const EdgeInsets.all(16),
-              padding: const EdgeInsets.all(20),
+              margin: const EdgeInsets.fromLTRB(16, 8, 16, 12),
+              padding: const EdgeInsets.all(18),
               decoration: BoxDecoration(
                 gradient: const LinearGradient(
                   colors: [AppColors.primary, Color(0xFF4834D4)],
                   begin: Alignment.topLeft,
                   end: Alignment.bottomRight,
                 ),
-                borderRadius: BorderRadius.circular(20),
+                borderRadius: BorderRadius.circular(18),
                 boxShadow: [
                   BoxShadow(
                     color: AppColors.primary.withOpacity(0.3),
@@ -93,87 +141,202 @@ class HomeScreen extends StatelessWidget {
                 crossAxisAlignment: CrossAxisAlignment.start,
                 children: const [
                   Text(
-                    'أهلاً بك في راديو العالم 🌍',
+                    'راديو العالم المباشر 🌍',
                     style: TextStyle(color: Colors.white, fontSize: 18, fontWeight: FontWeight.bold),
                   ),
                   SizedBox(height: 6),
                   Text(
-                    'استمع مباشرة لأكثر من 40,000 محطة إذاعية من كافة أنحاء العالم بأعلى جودة وبدون انقطاع.',
+                    'استمع لآلاف المحطات الإذاعية المباشرة. انزل لأسفل لتنزيل المزيد من الإذاعات باستمرار بدون توقف.',
                     style: TextStyle(color: Colors.white70, fontSize: 13, height: 1.4),
                   ),
                 ],
               ),
             ),
+
+            // Countries Section Header
             Padding(
-              padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 8),
-              child: Text(
-                AppStrings.countries,
-                style: const TextStyle(color: AppColors.textPrimary, fontSize: 16, fontWeight: FontWeight.bold),
+              padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 6),
+              child: Row(
+                children: [
+                  const Text(
+                    AppStrings.countries,
+                    style: TextStyle(color: AppColors.textPrimary, fontSize: 15, fontWeight: FontWeight.bold),
+                  ),
+                  const Spacer(),
+                  if (radio.selectedCountryCode != null)
+                    TextButton(
+                      onPressed: () => radio.loadTopStations(),
+                      child: const Text('إلغاء التصفية', style: TextStyle(color: AppColors.accent, fontSize: 12)),
+                    ),
+                ],
               ),
             ),
+
+            // Countries Horizontal List
             SizedBox(
-              height: 48,
-              child: ListView.builder(
+              height: 44,
+              child: ListView(
                 scrollDirection: Axis.horizontal,
                 padding: const EdgeInsets.symmetric(horizontal: 12),
-                itemCount: _quickCountries.length,
-                itemBuilder: (context, index) {
-                  final c = _quickCountries[index];
-                  return Padding(
+                children: [
+                  // Global "All" Chip
+                  Padding(
                     padding: const EdgeInsets.symmetric(horizontal: 4),
-                    child: ActionChip(
+                    child: FilterChip(
+                      selected: radio.selectedCountryCode == null && radio.selectedTag == null,
+                      showCheckmark: false,
+                      selectedColor: AppColors.accent,
                       backgroundColor: AppColors.surface,
-                      side: const BorderSide(color: AppColors.cardBorder),
-                      label: Text('${c['flag']}  ${c['name']}'),
-                      labelStyle: const TextStyle(color: AppColors.textPrimary, fontSize: 13),
-                      onPressed: () => radio.fetchByCountry(c['code']!),
+                      side: BorderSide(
+                        color: (radio.selectedCountryCode == null && radio.selectedTag == null)
+                            ? AppColors.accent
+                            : AppColors.cardBorder,
+                      ),
+                      label: Text(
+                        '🌍 كل العالم',
+                        style: TextStyle(
+                          color: (radio.selectedCountryCode == null && radio.selectedTag == null)
+                              ? Colors.black87
+                              : AppColors.textPrimary,
+                          fontWeight: FontWeight.bold,
+                          fontSize: 12,
+                        ),
+                      ),
+                      onSelected: (_) => radio.loadTopStations(),
                     ),
-                  );
-                },
+                  ),
+                  ..._quickCountries.map((c) {
+                    final isSelected = radio.selectedCountryCode == c['code'];
+                    return Padding(
+                      padding: const EdgeInsets.symmetric(horizontal: 4),
+                      child: FilterChip(
+                        selected: isSelected,
+                        showCheckmark: false,
+                        selectedColor: AppColors.accent,
+                        backgroundColor: AppColors.surface,
+                        side: BorderSide(
+                          color: isSelected ? AppColors.accent : AppColors.cardBorder,
+                          width: isSelected ? 1.5 : 1.0,
+                        ),
+                        label: Text(
+                          '${c['flag']}  ${c['name']}',
+                          style: TextStyle(
+                            color: isSelected ? Colors.black87 : AppColors.textPrimary,
+                            fontWeight: isSelected ? FontWeight.bold : FontWeight.normal,
+                            fontSize: 12,
+                          ),
+                        ),
+                        onSelected: (_) => radio.filterByCountry(c['code']!, c['name']!),
+                      ),
+                    );
+                  }).toList(),
+                ],
               ),
             ),
-            const SizedBox(height: 14),
+
+            const SizedBox(height: 12),
+
+            // Categories Section Header
             Padding(
-              padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 8),
-              child: Text(
-                AppStrings.categories,
-                style: const TextStyle(color: AppColors.textPrimary, fontSize: 16, fontWeight: FontWeight.bold),
+              padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 6),
+              child: Row(
+                children: [
+                  const Text(
+                    AppStrings.categories,
+                    style: TextStyle(color: AppColors.textPrimary, fontSize: 15, fontWeight: FontWeight.bold),
+                  ),
+                  const Spacer(),
+                  if (radio.selectedTag != null)
+                    TextButton(
+                      onPressed: () => radio.loadTopStations(),
+                      child: const Text('إلغاء التصفية', style: TextStyle(color: AppColors.accent, fontSize: 12)),
+                    ),
+                ],
               ),
             ),
+
+            // Categories Horizontal List
             SizedBox(
-              height: 48,
-              child: ListView.builder(
+              height: 44,
+              child: ListView(
                 scrollDirection: Axis.horizontal,
                 padding: const EdgeInsets.symmetric(horizontal: 12),
-                itemCount: _categories.length,
-                itemBuilder: (context, index) {
-                  final cat = _categories[index];
+                children: _categories.map((cat) {
+                  final isSelected = radio.selectedTag == cat['tag'];
                   return Padding(
                     padding: const EdgeInsets.symmetric(horizontal: 4),
-                    child: ActionChip(
+                    child: FilterChip(
+                      selected: isSelected,
+                      showCheckmark: false,
+                      selectedColor: AppColors.primary,
                       backgroundColor: AppColors.surface,
-                      side: const BorderSide(color: AppColors.cardBorder),
-                      label: Text('${cat['icon']}  ${cat['name']}'),
-                      labelStyle: const TextStyle(color: AppColors.textPrimary, fontSize: 13),
-                      onPressed: () => radio.fetchByTag(cat['tag']!),
+                      side: BorderSide(
+                        color: isSelected ? AppColors.primary : AppColors.cardBorder,
+                        width: isSelected ? 1.5 : 1.0,
+                      ),
+                      label: Text(
+                        '${cat['icon']}  ${cat['name']}',
+                        style: TextStyle(
+                          color: isSelected ? Colors.white : AppColors.textPrimary,
+                          fontWeight: isSelected ? FontWeight.bold : FontWeight.normal,
+                          fontSize: 12,
+                        ),
+                      ),
+                      onSelected: (_) => radio.filterByTag(cat['tag']!, cat['name']!),
                     ),
                   );
-                },
+                }).toList(),
               ),
             ),
-            const SizedBox(height: 18),
+
+            const SizedBox(height: 16),
+
+            // Dynamic Active Title + Count Badge
             Padding(
               padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 8),
-              child: Text(
-                AppStrings.topStations,
-                style: const TextStyle(color: AppColors.textPrimary, fontSize: 16, fontWeight: FontWeight.bold),
+              child: Row(
+                children: [
+                  Text(
+                    radio.activeFilterTitle,
+                    style: const TextStyle(
+                      color: AppColors.textPrimary,
+                      fontSize: 16,
+                      fontWeight: FontWeight.bold,
+                    ),
+                  ),
+                  const SizedBox(width: 8),
+                  if (!radio.isLoading && radio.homeStations.isNotEmpty)
+                    Container(
+                      padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 2),
+                      decoration: BoxDecoration(
+                        color: AppColors.accent.withOpacity(0.15),
+                        borderRadius: BorderRadius.circular(10),
+                      ),
+                      child: Text(
+                        '${radio.homeStations.length} إذاعة مُحمّلة',
+                        style: const TextStyle(
+                          color: AppColors.accent,
+                          fontSize: 11,
+                          fontWeight: FontWeight.bold,
+                        ),
+                      ),
+                    ),
+                ],
               ),
             ),
+
+            // Loading / Error / Empty / Stations List
             if (radio.isLoading)
               const Center(
                 child: Padding(
-                  padding: EdgeInsets.all(40),
-                  child: CircularProgressIndicator(color: AppColors.accent),
+                  padding: EdgeInsets.all(50),
+                  child: Column(
+                    children: [
+                      CircularProgressIndicator(color: AppColors.accent),
+                      SizedBox(height: 12),
+                      Text('جاري جلب مئات الإذاعات...', style: TextStyle(color: AppColors.textSecondary, fontSize: 13)),
+                    ],
+                  ),
                 ),
               )
             else if (radio.errorMessage != null)
@@ -195,8 +358,26 @@ class HomeScreen extends StatelessWidget {
                   ),
                 ),
               )
-            else
-              ...radio.topStations.map(
+            else if (radio.homeStations.isEmpty)
+              Center(
+                child: Padding(
+                  padding: const EdgeInsets.all(40),
+                  child: Column(
+                    children: [
+                      const Icon(Icons.radio, color: AppColors.surfaceLight, size: 56),
+                      const SizedBox(height: 12),
+                      const Text('لا توجد إذاعات متاحة في هذا الاختيار حالياً', style: TextStyle(color: AppColors.textSecondary)),
+                      const SizedBox(height: 12),
+                      TextButton(
+                        onPressed: () => radio.loadTopStations(),
+                        child: const Text('العودة للرئيسية', style: TextStyle(color: AppColors.accent)),
+                      ),
+                    ],
+                  ),
+                ),
+              )
+            else ...[
+              ...radio.homeStations.map(
                 (station) => StationCard(
                   station: station,
                   isCurrent: radio.currentStation?.uuid == station.uuid,
@@ -205,6 +386,30 @@ class HomeScreen extends StatelessWidget {
                   onFavoriteToggle: () => radio.toggleFavorite(station),
                 ),
               ),
+
+              // Bottom Loader for Infinite Scroll
+              if (radio.isLoadingMore)
+                Padding(
+                  padding: const EdgeInsets.symmetric(vertical: 20),
+                  child: Center(
+                    child: Row(
+                      mainAxisAlignment: MainAxisAlignment.center,
+                      children: const [
+                        SizedBox(
+                          width: 18,
+                          height: 18,
+                          child: CircularProgressIndicator(strokeWidth: 2, color: AppColors.accent),
+                        ),
+                        SizedBox(width: 12),
+                        Text(
+                          'جاري تحميل المزيد من المحطات...',
+                          style: TextStyle(color: AppColors.textSecondary, fontSize: 13),
+                        ),
+                      ],
+                    ),
+                  ),
+                ),
+            ],
           ],
         ),
       ),

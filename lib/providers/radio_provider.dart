@@ -11,26 +11,49 @@ class RadioProvider extends ChangeNotifier {
   final RadioApiService _api = RadioApiService();
   final AudioService _audio = AudioService();
 
-  List<RadioStation> _topStations = [];
+  static const int _batchSize = 500;
+
+  // Home Screen stations and active filter
+  List<RadioStation> _homeStations = [];
+  String? _selectedCountryCode;
+  String? _selectedCountryName;
+  String? _selectedTag;
+  String? _selectedTagName;
+  String _activeFilterTitle = 'أشهر الإذاعات العالمية';
+
+  // Pagination state
+  bool _isLoading = false;
+  bool _isLoadingMore = false;
+  bool _hasMore = true;
+
+  // Search Screen stations
   List<RadioStation> _searchResults = [];
+  bool _isSearching = false;
+
+  // Favorites & History
   List<RadioStation> _favorites = [];
   final List<RadioStation> _history = [];
 
   RadioStation? _currentStation;
-  bool _isLoading = false;
-  bool _isSearching = false;
   String? _errorMessage;
   double _volume = 1.0;
   Timer? _sleepTimer;
   int? _sleepTimerMinutes;
 
-  List<RadioStation> get topStations => _topStations;
+  List<RadioStation> get homeStations => _homeStations;
+  String? get selectedCountryCode => _selectedCountryCode;
+  String? get selectedTag => _selectedTag;
+  String get activeFilterTitle => _activeFilterTitle;
+
+  bool get isLoading => _isLoading;
+  bool get isLoadingMore => _isLoadingMore;
+  bool get hasMore => _hasMore;
+  bool get isSearching => _isSearching;
+
   List<RadioStation> get searchResults => _searchResults;
   List<RadioStation> get favorites => _favorites;
   List<RadioStation> get history => _history;
   RadioStation? get currentStation => _currentStation;
-  bool get isLoading => _isLoading;
-  bool get isSearching => _isSearching;
   String? get errorMessage => _errorMessage;
   double get volume => _volume;
   int? get sleepTimerMinutes => _sleepTimerMinutes;
@@ -56,23 +79,129 @@ class RadioProvider extends ChangeNotifier {
     });
   }
 
+  // Load Top Global Stations
   Future<void> loadTopStations() async {
     _isLoading = true;
     _errorMessage = null;
+    _selectedCountryCode = null;
+    _selectedCountryName = null;
+    _selectedTag = null;
+    _selectedTagName = null;
+    _activeFilterTitle = 'أشهر الإذاعات العالمية';
+    _hasMore = true;
     notifyListeners();
 
     try {
-      final list = await _api.getTopStations(limit: 60);
-      _topStations = list;
-      _syncFavorites(_topStations);
+      final list = await _api.getTopStations(limit: _batchSize, offset: 0);
+      _homeStations = list;
+      _syncFavorites(_homeStations);
+      _hasMore = list.length >= _batchSize;
     } catch (e) {
-      _errorMessage = 'تعذر تحميل الإذاعات، تحقق من الاتصال';
+      _errorMessage = 'تعذر تحميل الإذاعات، تحقق من الاتصال بالإنترنت';
     } finally {
       _isLoading = false;
       notifyListeners();
     }
   }
 
+  // Filter Home Screen by Country
+  Future<void> filterByCountry(String countryCode, String countryName) async {
+    if (_selectedCountryCode == countryCode) {
+      await loadTopStations();
+      return;
+    }
+
+    _isLoading = true;
+    _errorMessage = null;
+    _selectedCountryCode = countryCode;
+    _selectedCountryName = countryName;
+    _selectedTag = null;
+    _selectedTagName = null;
+    _activeFilterTitle = 'إذاعات $countryName';
+    _hasMore = true;
+    notifyListeners();
+
+    try {
+      final list = await _api.getStationsByCountry(countryCode, limit: _batchSize, offset: 0);
+      _homeStations = list;
+      _syncFavorites(_homeStations);
+      _hasMore = list.length >= _batchSize;
+    } catch (e) {
+      _errorMessage = 'تعذر تحميل إذاعات $countryName';
+    } finally {
+      _isLoading = false;
+      notifyListeners();
+    }
+  }
+
+  // Filter Home Screen by Tag/Category
+  Future<void> filterByTag(String tag, String tagName) async {
+    if (_selectedTag == tag) {
+      await loadTopStations();
+      return;
+    }
+
+    _isLoading = true;
+    _errorMessage = null;
+    _selectedTag = tag;
+    _selectedTagName = tagName;
+    _selectedCountryCode = null;
+    _selectedCountryName = null;
+    _activeFilterTitle = 'إذاعات $tagName';
+    _hasMore = true;
+    notifyListeners();
+
+    try {
+      final list = await _api.getStationsByTag(tag, limit: _batchSize, offset: 0);
+      _homeStations = list;
+      _syncFavorites(_homeStations);
+      _hasMore = list.length >= _batchSize;
+    } catch (e) {
+      _errorMessage = 'تعذر تحميل إذاعات $tagName';
+    } finally {
+      _isLoading = false;
+      notifyListeners();
+    }
+  }
+
+  // Infinite Scroll: Load next batch of 500 stations
+  Future<void> loadMoreHomeStations() async {
+    if (_isLoadingMore || !_hasMore || _isLoading) return;
+
+    _isLoadingMore = true;
+    notifyListeners();
+
+    final nextOffset = _homeStations.length;
+    List<RadioStation> nextBatch = [];
+
+    try {
+      if (_selectedCountryCode != null) {
+        nextBatch = await _api.getStationsByCountry(_selectedCountryCode!, limit: _batchSize, offset: nextOffset);
+      } else if (_selectedTag != null) {
+        nextBatch = await _api.getStationsByTag(_selectedTag!, limit: _batchSize, offset: nextOffset);
+      } else {
+        nextBatch = await _api.getTopStations(limit: _batchSize, offset: nextOffset);
+      }
+
+      if (nextBatch.isEmpty) {
+        _hasMore = false;
+      } else {
+        // Prevent duplicates
+        final existingIds = _homeStations.map((s) => s.uuid).toSet();
+        final filteredBatch = nextBatch.where((s) => !existingIds.contains(s.uuid)).toList();
+        _homeStations.addAll(filteredBatch);
+        _syncFavorites(_homeStations);
+        _hasMore = nextBatch.length >= _batchSize;
+      }
+    } catch (_) {
+      // Keep existing list on pagination error
+    } finally {
+      _isLoadingMore = false;
+      notifyListeners();
+    }
+  }
+
+  // Search Screen search
   Future<void> search(String query) async {
     if (query.trim().isEmpty) {
       _searchResults = [];
@@ -85,45 +214,11 @@ class RadioProvider extends ChangeNotifier {
     notifyListeners();
 
     try {
-      final list = await _api.searchStations(query);
+      final list = await _api.searchStations(query, limit: _batchSize);
       _searchResults = list;
       _syncFavorites(_searchResults);
     } catch (e) {
       _errorMessage = 'تعذر إتمام البحث';
-    } finally {
-      _isSearching = false;
-      notifyListeners();
-    }
-  }
-
-  Future<void> fetchByCountry(String countryCode) async {
-    _isSearching = true;
-    _errorMessage = null;
-    notifyListeners();
-
-    try {
-      final list = await _api.getStationsByCountry(countryCode);
-      _searchResults = list;
-      _syncFavorites(_searchResults);
-    } catch (e) {
-      _errorMessage = 'تعذر تحميل إذاعات هذه الدولة';
-    } finally {
-      _isSearching = false;
-      notifyListeners();
-    }
-  }
-
-  Future<void> fetchByTag(String tag) async {
-    _isSearching = true;
-    _errorMessage = null;
-    notifyListeners();
-
-    try {
-      final list = await _api.getStationsByTag(tag);
-      _searchResults = list;
-      _syncFavorites(_searchResults);
-    } catch (e) {
-      _errorMessage = 'تعذر تحميل إذاعات هذا التصنيف';
     } finally {
       _isSearching = false;
       notifyListeners();
@@ -140,7 +235,7 @@ class RadioProvider extends ChangeNotifier {
     try {
       await _audio.play(station.url);
     } catch (e) {
-      _errorMessage = 'تعذر تشغيل هذا الرابط الصوتي';
+      _errorMessage = 'تعذر تشغيل هذا الرابط الصوتي، جرب إذاعة أخرى';
       notifyListeners();
     }
   }
@@ -187,7 +282,7 @@ class RadioProvider extends ChangeNotifier {
   void _addToHistory(RadioStation station) {
     _history.removeWhere((s) => s.uuid == station.uuid);
     _history.insert(0, station);
-    if (_history.length > 30) {
+    if (_history.length > 50) {
       _history.removeLast();
     }
   }
@@ -202,7 +297,7 @@ class RadioProvider extends ChangeNotifier {
       _favorites.insert(0, station);
     }
 
-    _syncFavorites(_topStations);
+    _syncFavorites(_homeStations);
     _syncFavorites(_searchResults);
     if (_currentStation?.uuid == station.uuid) {
       _currentStation!.isFavorite = station.isFavorite;
