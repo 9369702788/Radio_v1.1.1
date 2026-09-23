@@ -284,7 +284,7 @@ class PlayerScreen extends StatelessWidget {
     );
   }
 
-  void _searchCurrentTrack(BuildContext context, String title) {
+  void _searchCurrentTrack(BuildContext context, RadioProvider radio, String title) {
     showModalBottomSheet(
       context: context,
       backgroundColor: AppColors.surface,
@@ -799,7 +799,7 @@ class PlayerScreen extends StatelessWidget {
                         const Icon(Icons.graphic_eq, color: AppColors.accent, size: 16),
                         const SizedBox(width: 4),
                         GestureDetector(
-                          onTap: () => _searchCurrentTrack(context, radio.liveMetadataTitle!),
+                          onTap: () => _searchCurrentTrack(context, radio, radio.liveMetadataTitle!),
                           child: const Icon(Icons.search, color: AppColors.accentPink, size: 16),
                         ),
                         const SizedBox(width: 8),

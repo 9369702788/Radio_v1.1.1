@@ -994,7 +994,7 @@ class RadioProvider extends ChangeNotifier {
 
   // Picture-in-Picture (Floating Player Overlay) 🎈
   Future<void> enterPictureInPicture() async {
-    const channel = MethodChannel('com.worldradio.app/widget');
+    final channel = MethodChannel('com.worldradio.app/widget');
     try {
       await channel.invokeMethod('enterPip');
     } catch (_) {}

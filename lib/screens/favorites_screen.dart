@@ -1,5 +1,4 @@
 import 'package:flutter/material.dart';
-import 'package:flutter/services.dart';
 import 'package:provider/provider.dart';
 import 'package:share_plus/share_plus.dart';
 import '../providers/radio_provider.dart';
@@ -14,9 +13,7 @@ class FavoritesScreen extends StatelessWidget {
     showModalBottomSheet(
       context: context,
       backgroundColor: AppColors.surface,
-      shape: const RoundedRectangleBorder(
-        borderRadius: BorderRadius.vertical(top: Radius.circular(20)),
-      ),
+      shape: const RoundedRectangleBorder(borderRadius: BorderRadius.vertical(top: Radius.circular(20))),
       builder: (ctx) => Padding(
         padding: const EdgeInsets.all(20),
         child: Column(
@@ -121,13 +118,11 @@ class FavoritesScreen extends StatelessWidget {
             style: TextStyle(color: AppColors.textPrimary, fontWeight: FontWeight.bold),
           ),
           actions: [
-            // Backup & Restore button
             IconButton(
               tooltip: 'النسخ الاحتياطي والمزامنة',
               icon: const Icon(Icons.backup_outlined, color: AppColors.accent),
               onPressed: () => _showBackupDialog(context, radio),
             ),
-            // Share all favorites
             if (radio.favorites.isNotEmpty)
               IconButton(
                 tooltip: 'مشاركة قائمة قنواتي المفضلة',
@@ -155,36 +150,38 @@ class FavoritesScreen extends StatelessWidget {
         ),
         body: TabBarView(
           children: [
-            // Favorites Tab
+            // Tab 1: Favorites with Folders
             Column(
               children: [
-                
-            // Folders Filter Chips Bar 📁
-            Container(
-              height: 40,
-              margin: const EdgeInsets.only(top: 8, bottom: 4),
-              child: ListView(
-                scrollDirection: Axis.horizontal,
-                padding: const EdgeInsets.symmetric(horizontal: 14),
-                children: [
-                  for (final f in ['الكل', 'قرآن', 'أخبار', 'رياضة'])
-                    Padding(
-                      padding: const EdgeInsets.symmetric(horizontal: 4),
-                      child: ChoiceChip(
-                        label: Text(
-                          f == 'قرآن' ? '📖 قرآن وتلاوات' : f == 'أخبار' ? '📰 أخبار' : f == 'رياضة' ? '⚽ رياضة' : '📁 كل المفضلة',
-                          style: TextStyle(fontSize: 11, fontWeight: FontWeight.bold, color: radio.selectedFavoritesFolder == f ? Colors.black87 : AppColors.textPrimary),
+                // Folder Filter Chips Bar
+                Container(
+                  height: 40,
+                  margin: const EdgeInsets.only(top: 8, bottom: 4),
+                  child: ListView(
+                    scrollDirection: Axis.horizontal,
+                    padding: const EdgeInsets.symmetric(horizontal: 14),
+                    children: [
+                      for (final f in ['الكل', 'قرآن', 'أخبار', 'رياضة'])
+                        Padding(
+                          padding: const EdgeInsets.symmetric(horizontal: 4),
+                          child: ChoiceChip(
+                            label: Text(
+                              f == 'قرآن' ? '📖 قرآن وتلاوات' : f == 'أخبار' ? '📰 أخبار' : f == 'رياضة' ? '⚽ رياضة' : '📁 كل المفضلة',
+                              style: TextStyle(
+                                fontSize: 11,
+                                fontWeight: FontWeight.bold,
+                                color: radio.selectedFavoritesFolder == f ? Colors.black87 : AppColors.textPrimary,
+                              ),
+                            ),
+                            selected: radio.selectedFavoritesFolder == f,
+                            selectedColor: AppColors.accent,
+                            backgroundColor: AppColors.surface,
+                            onSelected: (_) => radio.setFavoritesFolder(f),
+                          ),
                         ),
-                        selected: radio.selectedFavoritesFolder == f,
-                        selectedColor: AppColors.accent,
-                        backgroundColor: AppColors.surface,
-                        onSelected: (_) => radio.setFavoritesFolder(f),
-                      ),
-                    ),
-                ],
-              ),
-            ),
-
+                    ],
+                  ),
+                ),
                 Expanded(
                   child: radio.filteredFavorites.isEmpty
                       ? Center(
@@ -214,19 +211,8 @@ class FavoritesScreen extends StatelessWidget {
                 ),
               ],
             ),
-                ? Center(
-                    child: Column(
-                      mainAxisAlignment: MainAxisAlignment.center,
-                      children: const [
-                        Icon(Icons.favorite_border, size: 64, color: AppColors.surfaceLight),
-                        SizedBox(height: 14),
-                        Text(AppStrings.noFavorites, style: TextStyle(color: AppColors.textSecondary)),
-                      ],
-                    ),
-                  )
 
-
-            // History Tab with Clear button
+            // Tab 2: History with Clear Option
             radio.history.isEmpty
                 ? Center(
                     child: Column(
