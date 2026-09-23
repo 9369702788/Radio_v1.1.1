@@ -1,10 +1,12 @@
-import 'map_explorer_screen.dart';
+import 'vintage_dial_screen.dart';
+import 'insights_screen.dart';
 import 'package:flutter/material.dart';
 import 'package:provider/provider.dart';
 import '../providers/radio_provider.dart';
 import '../widgets/station_card.dart';
 import '../constants/app_colors.dart';
 import '../constants/app_strings.dart';
+import 'map_explorer_screen.dart';
 
 class HomeScreen extends StatefulWidget {
   const HomeScreen({super.key});
@@ -14,38 +16,6 @@ class HomeScreen extends StatefulWidget {
 }
 
 class _HomeScreenState extends State<HomeScreen> {
-
-  void _showThemeDialog(BuildContext context, RadioProvider radio) {
-    showModalBottomSheet(
-      context: context,
-      backgroundColor: AppColors.surface,
-      shape: const RoundedRectangleBorder(borderRadius: BorderRadius.vertical(top: Radius.circular(20))),
-      builder: (ctx) => Padding(
-        padding: const EdgeInsets.all(20),
-        child: Column(
-          mainAxisSize: MainAxisSize.min,
-          crossAxisAlignment: CrossAxisAlignment.start,
-          children: [
-            const Text(
-              'ألوان وثيم التطبيق 🎨',
-              style: TextStyle(color: AppColors.textPrimary, fontSize: 18, fontWeight: FontWeight.bold),
-            ),
-            const SizedBox(height: 14),
-            for (final th in ['فضاء ليلي 🌌', 'سواد فاحم (OLED) 🖤', 'كلاسيكي ذهبي 📻', 'أزرق نيون ⚡'])
-              ListTile(
-                title: Text(th, style: const TextStyle(color: AppColors.textPrimary)),
-                trailing: radio.currentThemeName == th.split(' ')[0] ? const Icon(Icons.check, color: AppColors.accent) : null,
-                onTap: () {
-                  radio.setTheme(th.split(' ')[0]);
-                  Navigator.pop(ctx);
-                },
-              ),
-          ],
-        ),
-      ),
-    );
-  }
-
   final ScrollController _scrollController = ScrollController();
 
   static const List<Map<String, String>> _quickCountries = [
@@ -104,6 +74,47 @@ class _HomeScreenState extends State<HomeScreen> {
     if (_scrollController.position.pixels >= _scrollController.position.maxScrollExtent - 400) {
       context.read<RadioProvider>().loadMoreHomeStations();
     }
+  }
+
+  void _showThemeDialog(BuildContext context, RadioProvider radio) {
+    showModalBottomSheet(
+      context: context,
+      backgroundColor: AppColors.surface,
+      shape: const RoundedRectangleBorder(borderRadius: BorderRadius.vertical(top: Radius.circular(20))),
+      builder: (ctx) => SafeArea(
+        child: Padding(
+          padding: const EdgeInsets.fromLTRB(20, 16, 20, 16),
+          child: Column(
+            mainAxisSize: MainAxisSize.min,
+            crossAxisAlignment: CrossAxisAlignment.start,
+            children: [
+              Center(
+                child: Container(
+                  width: 40,
+                  height: 4,
+                  decoration: BoxDecoration(color: AppColors.cardBorder, borderRadius: BorderRadius.circular(2)),
+                ),
+              ),
+              const SizedBox(height: 14),
+              const Text(
+                'ألوان وثيم التطبيق 🎨',
+                style: TextStyle(color: AppColors.textPrimary, fontSize: 18, fontWeight: FontWeight.bold),
+              ),
+              const SizedBox(height: 14),
+              for (final th in ['فضاء ليلي 🌌', 'سواد فاحم (OLED) 🖤', 'كلاسيكي ذهبي 📻', 'أزرق نيون ⚡'])
+                ListTile(
+                  title: Text(th, style: const TextStyle(color: AppColors.textPrimary)),
+                  trailing: radio.currentThemeName == th.split(' ')[0] ? const Icon(Icons.check, color: AppColors.accent) : null,
+                  onTap: () {
+                    radio.setTheme(th.split(' ')[0]);
+                    Navigator.pop(ctx);
+                  },
+                ),
+            ],
+          ),
+        ),
+      ),
+    );
   }
 
   void _showAddCustomStationDialog(BuildContext context) {
@@ -194,74 +205,44 @@ class _HomeScreenState extends State<HomeScreen> {
       appBar: AppBar(
         backgroundColor: Colors.transparent,
         elevation: 0,
+        titleSpacing: 16,
         title: Row(
-          children: [
-            Container(
-              padding: const EdgeInsets.all(8),
-              decoration: BoxDecoration(
-                color: AppColors.primary.withOpacity(0.2),
-                borderRadius: BorderRadius.circular(10),
-              ),
-              child: const Icon(Icons.radio, color: AppColors.accent, size: 22),
-            ),
-            const SizedBox(width: 10),
-            const Text(
+          mainAxisSize: MainAxisSize.min,
+          children: const [
+            Icon(Icons.radio, color: AppColors.accent, size: 24),
+            SizedBox(width: 8),
+            Text(
               AppStrings.appName,
               style: TextStyle(
                 color: AppColors.textPrimary,
                 fontWeight: FontWeight.bold,
-                fontSize: 20,
+                fontSize: 18,
               ),
             ),
           ],
         ),
         actions: [
-          // Globe / Map Explorer Button 🗺️
+          // 0. Vintage Dial Button 📻
+          IconButton(
+            tooltip: 'راديو تناظري كلاسيكي',
+            icon: const Icon(Icons.dialpad, color: Color(0xFFE5C07B), size: 22),
+            onPressed: () {
+              Navigator.push(context, MaterialPageRoute(builder: (_) => const VintageDialScreen()));
+            },
+          ),
+          // 1. Interactive Globe / Map Button 🗺️
           IconButton(
             tooltip: 'خريطة العالم التفاعلية',
-            icon: const Icon(Icons.public, color: AppColors.accent),
+            icon: const Icon(Icons.public, color: AppColors.accent, size: 22),
             onPressed: () {
               Navigator.push(context, MaterialPageRoute(builder: (_) => const MapExplorerScreen()));
             },
           ),
-          // Theme Switcher 🎨
-          IconButton(
-            tooltip: 'ثيم وألوان التطبيق',
-            icon: const Icon(Icons.palette_outlined, color: AppColors.textPrimary),
-            onPressed: () => _showThemeDialog(context, radio),
-          ),
-          // Data Saver Mode Button 📶
-          IconButton(
-            tooltip: radio.dataSaverMode ? 'وضع توفير الباقة مفعل (بث خفيف)' : 'تفعيل وضع توفير باقة النت',
-            icon: Icon(
-              radio.dataSaverMode ? Icons.data_saver_on : Icons.data_saver_off,
-              color: radio.dataSaverMode ? AppColors.accent : AppColors.textSecondary,
-            ),
-            onPressed: () {
-              radio.toggleDataSaverMode();
-              ScaffoldMessenger.of(context).showSnackBar(
-                SnackBar(
-                  content: Text(
-                    radio.dataSaverMode
-                        ? 'تم تفعيل وضع توفير الباقة 📶 (تفضيل البث الخفيف)'
-                        : 'تم تعطيل وضع توفير الباقة (جودة فائقة)',
-                  ),
-                  duration: const Duration(seconds: 2),
-                  backgroundColor: radio.dataSaverMode ? AppColors.accent : AppColors.surfaceLight,
-                ),
-              );
-            },
-          ),
-          // Add Custom Station Button
-          IconButton(
-            tooltip: 'إضافة إذاعة خاصة برابط مخصص',
-            icon: const Icon(Icons.add_circle_outline, color: AppColors.accent),
-            onPressed: () => _showAddCustomStationDialog(context),
-          ),
-          // Surprise Me Button 🎲
+
+          // 2. Surprise Me Dice 🎲
           IconButton(
             tooltip: 'محطة عشوائية حول العالم',
-            icon: const Icon(Icons.casino_outlined, color: AppColors.accentPink),
+            icon: const Icon(Icons.casino_outlined, color: AppColors.accentPink, size: 22),
             onPressed: () async {
               final st = await radio.playRandomStation();
               if (context.mounted && st != null) {
@@ -274,12 +255,92 @@ class _HomeScreenState extends State<HomeScreen> {
               }
             },
           ),
-          // Refresh
+
+          // 3. Add Custom Station ➕
           IconButton(
-            tooltip: 'تحديث واسترجاع كل إذاعات العالم',
-            icon: const Icon(Icons.refresh, color: AppColors.textSecondary),
-            onPressed: () => radio.loadTopStations(),
+            tooltip: 'إضافة إذاعة خاصة',
+            icon: const Icon(Icons.add_circle_outline, color: AppColors.accent, size: 22),
+            onPressed: () => _showAddCustomStationDialog(context),
           ),
+
+          // 4. More Options Popup Menu (Data Saver, Theme, Refresh) ⋮
+          PopupMenuButton<String>(
+            icon: const Icon(Icons.more_vert, color: AppColors.textPrimary),
+            color: AppColors.surface,
+            shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(14)),
+            onSelected: (val) {
+              if (val == 'insights') {
+                Navigator.push(context, MaterialPageRoute(builder: (_) => const InsightsScreen()));
+              } else if (val == 'theme') {
+                _showThemeDialog(context, radio);
+              } else if (val == 'datasaver') {
+                radio.toggleDataSaverMode();
+                ScaffoldMessenger.of(context).showSnackBar(
+                  SnackBar(
+                    content: Text(
+                      radio.dataSaverMode
+                          ? 'تم تفعيل وضع توفير الباقة 📶 (بث خفيف)'
+                          : 'تم تعطيل وضع توفير الباقة (جودة فائقة)',
+                    ),
+                    duration: const Duration(seconds: 2),
+                    backgroundColor: radio.dataSaverMode ? AppColors.accent : AppColors.surfaceLight,
+                  ),
+                );
+              } else if (val == 'refresh') {
+                radio.loadTopStations();
+              }
+            },
+            itemBuilder: (ctx) => [
+              const PopupMenuItem(
+                value: 'insights',
+                child: Row(
+                  children: [
+                    Icon(Icons.insights, color: AppColors.accent, size: 20),
+                    SizedBox(width: 10),
+                    Text('إحصائيات الاستماع 📊', style: TextStyle(color: AppColors.textPrimary, fontSize: 13)),
+                  ],
+                ),
+              ),
+              PopupMenuItem(
+                value: 'datasaver',
+                child: Row(
+                  children: [
+                    Icon(
+                      radio.dataSaverMode ? Icons.data_saver_on : Icons.data_saver_off,
+                      color: radio.dataSaverMode ? AppColors.accent : AppColors.textSecondary,
+                      size: 20,
+                    ),
+                    const SizedBox(width: 10),
+                    Text(
+                      radio.dataSaverMode ? 'توفير الباقة: مُفعّل 📶' : 'توفير باقة النت',
+                      style: TextStyle(color: radio.dataSaverMode ? AppColors.accent : AppColors.textPrimary, fontSize: 13),
+                    ),
+                  ],
+                ),
+              ),
+              const PopupMenuItem(
+                value: 'theme',
+                child: Row(
+                  children: [
+                    Icon(Icons.palette_outlined, color: AppColors.accentPink, size: 20),
+                    SizedBox(width: 10),
+                    Text('ألوان وثيم التطبيق 🎨', style: TextStyle(color: AppColors.textPrimary, fontSize: 13)),
+                  ],
+                ),
+              ),
+              const PopupMenuItem(
+                value: 'refresh',
+                child: Row(
+                  children: [
+                    Icon(Icons.refresh, color: AppColors.accent, size: 20),
+                    SizedBox(width: 10),
+                    Text('تحديث الإذاعات العالمية 🔄', style: TextStyle(color: AppColors.textPrimary, fontSize: 13)),
+                  ],
+                ),
+              ),
+            ],
+          ),
+          const SizedBox(width: 4),
         ],
       ),
       body: RefreshIndicator(

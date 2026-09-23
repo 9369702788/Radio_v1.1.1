@@ -156,7 +156,64 @@ class FavoritesScreen extends StatelessWidget {
         body: TabBarView(
           children: [
             // Favorites Tab
-            radio.favorites.isEmpty
+            Column(
+              children: [
+                
+            // Folders Filter Chips Bar 📁
+            Container(
+              height: 40,
+              margin: const EdgeInsets.only(top: 8, bottom: 4),
+              child: ListView(
+                scrollDirection: Axis.horizontal,
+                padding: const EdgeInsets.symmetric(horizontal: 14),
+                children: [
+                  for (final f in ['الكل', 'قرآن', 'أخبار', 'رياضة'])
+                    Padding(
+                      padding: const EdgeInsets.symmetric(horizontal: 4),
+                      child: ChoiceChip(
+                        label: Text(
+                          f == 'قرآن' ? '📖 قرآن وتلاوات' : f == 'أخبار' ? '📰 أخبار' : f == 'رياضة' ? '⚽ رياضة' : '📁 كل المفضلة',
+                          style: TextStyle(fontSize: 11, fontWeight: FontWeight.bold, color: radio.selectedFavoritesFolder == f ? Colors.black87 : AppColors.textPrimary),
+                        ),
+                        selected: radio.selectedFavoritesFolder == f,
+                        selectedColor: AppColors.accent,
+                        backgroundColor: AppColors.surface,
+                        onSelected: (_) => radio.setFavoritesFolder(f),
+                      ),
+                    ),
+                ],
+              ),
+            ),
+
+                Expanded(
+                  child: radio.filteredFavorites.isEmpty
+                      ? Center(
+                          child: Column(
+                            mainAxisAlignment: MainAxisAlignment.center,
+                            children: const [
+                              Icon(Icons.favorite_border, size: 64, color: AppColors.surfaceLight),
+                              SizedBox(height: 14),
+                              Text('لا توجد إذاعات في هذا المجلد', style: TextStyle(color: AppColors.textSecondary)),
+                            ],
+                          ),
+                        )
+                      : ListView.builder(
+                          padding: const EdgeInsets.only(bottom: 90, top: 6),
+                          itemCount: radio.filteredFavorites.length,
+                          itemBuilder: (context, index) {
+                            final station = radio.filteredFavorites[index];
+                            return StationCard(
+                              station: station,
+                              isCurrent: radio.currentStation?.uuid == station.uuid,
+                              isPlaying: radio.isPlaying,
+                              onTap: () => radio.playStation(station),
+                              onFavoriteToggle: () => radio.toggleFavorite(station),
+                            );
+                          },
+                        ),
+                ),
+              ],
+            ),
                 ? Center(
                     child: Column(
                       mainAxisAlignment: MainAxisAlignment.center,
@@ -167,20 +224,7 @@ class FavoritesScreen extends StatelessWidget {
                       ],
                     ),
                   )
-                : ListView.builder(
-                    padding: const EdgeInsets.only(bottom: 90, top: 10),
-                    itemCount: radio.favorites.length,
-                    itemBuilder: (context, index) {
-                      final station = radio.favorites[index];
-                      return StationCard(
-                        station: station,
-                        isCurrent: radio.currentStation?.uuid == station.uuid,
-                        isPlaying: radio.isPlaying,
-                        onTap: () => radio.playStation(station),
-                        onFavoriteToggle: () => radio.toggleFavorite(station),
-                      );
-                    },
-                  ),
+
 
             // History Tab with Clear button
             radio.history.isEmpty

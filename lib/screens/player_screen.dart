@@ -1,3 +1,5 @@
+import 'battery_saver_screen.dart';
+import 'vintage_dial_screen.dart';
 import '../services/ambient_sound_service.dart';
 import 'car_mode_screen.dart';
 import 'package:flutter/material.dart';
@@ -10,6 +12,34 @@ import '../constants/app_colors.dart';
 import '../widgets/background_widget.dart';
 
 class PlayerScreen extends StatelessWidget {
+
+  Widget _buildAudioSpectrumVisualizer(bool isPlaying) {
+    const barHeights = [14.0, 26.0, 38.0, 20.0, 32.0, 42.0, 18.0, 28.0, 36.0, 22.0];
+    return SizedBox(
+      height: 44,
+      child: Row(
+        mainAxisAlignment: MainAxisAlignment.center,
+        crossAxisAlignment: CrossAxisAlignment.end,
+        children: [
+          for (int i = 0; i < barHeights.length; i++)
+            Container(
+              width: 5,
+              height: isPlaying ? barHeights[i] : 6.0,
+              margin: const EdgeInsets.symmetric(horizontal: 2.5),
+              decoration: BoxDecoration(
+                gradient: const LinearGradient(
+                  colors: [AppColors.accent, AppColors.accentPink],
+                  begin: Alignment.bottomCenter,
+                  end: Alignment.topCenter,
+                ),
+                borderRadius: BorderRadius.circular(3),
+              ),
+            ),
+        ],
+      ),
+    );
+  }
+
 
   void _showRemindersDialog(BuildContext context, RadioProvider radio) {
     final titleCtrl = TextEditingController();
@@ -276,6 +306,19 @@ class PlayerScreen extends StatelessWidget {
             ),
             const SizedBox(height: 16),
             ListTile(
+              leading: const Icon(Icons.translate, color: AppColors.accent),
+              title: const Text('الترجمة الفورية للعربية 🌐', style: TextStyle(color: AppColors.textPrimary, fontWeight: FontWeight.bold)),
+              subtitle: Text(radio.translateToText(title), style: const TextStyle(color: AppColors.accent, fontSize: 13)),
+              onTap: () {
+                ScaffoldMessenger.of(context).showSnackBar(
+                  SnackBar(
+                    content: Text('الترجمة: ' + radio.translateToText(title)),
+                    backgroundColor: AppColors.primary,
+                  ),
+                );
+              },
+            ),
+            ListTile(
               leading: const Icon(Icons.video_library, color: Colors.redAccent),
               title: const Text('البحث على YouTube', style: TextStyle(color: AppColors.textPrimary)),
               onTap: () {
@@ -357,7 +400,7 @@ class PlayerScreen extends StatelessWidget {
                   child: ListView(
                     scrollDirection: Axis.horizontal,
                     children: [
-                      for (final p in ['طبيعي', 'قرآن / صوت نقي', 'بيز قوي (Bass Boost)', 'كلاسيك', 'بوب', 'جاز'])
+                      for (final p in ['طبيعي', 'قرآن / صوت نقي', 'بيز قوي (Bass Boost)', 'صوت محيطي 3D (قاعة كبرى)', 'كلاسيك', 'بوب', 'جاز'])
                         Padding(
                           padding: const EdgeInsets.symmetric(horizontal: 4),
                           child: ChoiceChip(
@@ -652,6 +695,46 @@ class PlayerScreen extends StatelessWidget {
           ),
           centerTitle: true,
           actions: [
+            // Floating Picture-in-Picture (PiP) 🎈
+            IconButton(
+              tooltip: 'مشغل عائم على الشاشة (PiP)',
+              icon: const Icon(Icons.picture_in_picture_alt, color: AppColors.accent),
+              onPressed: () => radio.enterPictureInPicture(),
+            ),
+            // Live Subtitles (CC) 🔤
+            IconButton(
+              tooltip: 'الترجمة النصية والمكتوبة للبث (CC)',
+              icon: Icon(
+                radio.subtitlesEnabled ? Icons.closed_caption : Icons.closed_caption_disabled,
+                color: radio.subtitlesEnabled ? AppColors.accent : Colors.white60,
+              ),
+              onPressed: () => radio.toggleSubtitles(),
+            ),
+            // One-Handed Reachability Toggle 📱
+            IconButton(
+              tooltip: 'وضع اليد الواحدة المريح',
+              icon: Icon(
+                Icons.pan_tool_alt,
+                color: radio.oneHandedMode ? AppColors.accent : Colors.white70,
+                size: 20,
+              ),
+              onPressed: () => radio.toggleOneHandedMode(),
+            ),
+            // Ultra Battery Saver 🔋
+            IconButton(
+              tooltip: 'وضع توفير البطارية الأقصى',
+              icon: const Icon(Icons.battery_saver, color: Colors.greenAccent),
+              onPressed: () {
+                Navigator.push(context, MaterialPageRoute(builder: (_) => const BatterySaverScreen()));
+              },
+            ),
+            // Quick Recall Last Station ⚡
+            if (radio.previousStation != null)
+              IconButton(
+                tooltip: 'التبديل لآخر إذاعة: ${radio.previousStation?.name}',
+                icon: const Icon(Icons.history_toggle_off, color: AppColors.accent),
+                onPressed: () => radio.quickRecallStation(),
+              ),
             // Scheduled Reminder Button 📅
             IconButton(
               tooltip: 'تذكير ببرنامج إذاعي مجدول',
@@ -691,8 +774,13 @@ class PlayerScreen extends StatelessWidget {
           ],
         ),
         body: SafeArea(
-          child: Padding(
-            padding: const EdgeInsets.symmetric(horizontal: 24),
+          child: AnimatedPadding(
+            duration: const Duration(milliseconds: 300),
+            padding: EdgeInsets.only(
+              left: 24,
+              right: 24,
+              top: radio.oneHandedMode ? 140 : 0,
+            ),
             child: Column(
               mainAxisAlignment: MainAxisAlignment.spaceEvenly,
               children: [
@@ -721,6 +809,30 @@ class PlayerScreen extends StatelessWidget {
                             maxLines: 1,
                             overflow: TextOverflow.ellipsis,
                             style: const TextStyle(color: AppColors.accent, fontSize: 12, fontWeight: FontWeight.bold),
+                          ),
+                        ),
+                      ],
+                    ),
+                  ),
+
+                // Live Subtitles Box (CC) 🔤
+                if (radio.subtitlesEnabled)
+                  Container(
+                    margin: const EdgeInsets.symmetric(horizontal: 16),
+                    padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 8),
+                    decoration: BoxDecoration(
+                      color: Colors.black.withOpacity(0.85),
+                      borderRadius: BorderRadius.circular(12),
+                      border: Border.all(color: AppColors.accent.withOpacity(0.6)),
+                    ),
+                    child: Row(
+                      children: [
+                        const Icon(Icons.closed_caption, color: AppColors.accent, size: 20),
+                        const SizedBox(width: 8),
+                        Expanded(
+                          child: Text(
+                            radio.liveSubtitleText,
+                            style: const TextStyle(color: Colors.white, fontSize: 12, height: 1.3),
                           ),
                         ),
                       ],
@@ -761,6 +873,9 @@ class PlayerScreen extends StatelessWidget {
                     ),
                   ),
                 ),
+
+                // Live Audio Spectrum Visualizer 📊
+                _buildAudioSpectrumVisualizer(radio.isPlaying),
 
                 // Station Info
                 Column(
