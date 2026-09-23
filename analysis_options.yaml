@@ -1,5 +1,12 @@
 include: package:flutter_lints/flutter.yaml
 
+analyzer:
+  errors:
+    deprecated_member_use: ignore
+    unused_field: warning
+    unnecessary_to_list_in_spreads: ignore
+    use_super_parameters: ignore
+
 linter:
   rules:
     prefer_const_constructors: false

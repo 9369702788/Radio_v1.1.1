@@ -229,7 +229,7 @@ class _HomeScreenState extends State<HomeScreen> {
                         onSelected: (_) => radio.filterByCountry(c['code']!, c['name']!),
                       ),
                     );
-                  }).toList(),
+                  }),
                 ],
               ),
             ),
@@ -285,7 +285,7 @@ class _HomeScreenState extends State<HomeScreen> {
                       onSelected: (_) => radio.filterByTag(cat['tag']!, cat['name']!),
                     ),
                   );
-                }).toList(),
+                }),
               ),
             ),
 

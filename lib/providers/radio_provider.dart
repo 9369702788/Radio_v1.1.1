@@ -16,9 +16,7 @@ class RadioProvider extends ChangeNotifier {
   // Home Screen stations and active filter
   List<RadioStation> _homeStations = [];
   String? _selectedCountryCode;
-  String? _selectedCountryName;
   String? _selectedTag;
-  String? _selectedTagName;
   String _activeFilterTitle = 'أشهر الإذاعات العالمية';
 
   // Pagination state
@@ -84,9 +82,7 @@ class RadioProvider extends ChangeNotifier {
     _isLoading = true;
     _errorMessage = null;
     _selectedCountryCode = null;
-    _selectedCountryName = null;
     _selectedTag = null;
-    _selectedTagName = null;
     _activeFilterTitle = 'أشهر الإذاعات العالمية';
     _hasMore = true;
     notifyListeners();
@@ -114,9 +110,7 @@ class RadioProvider extends ChangeNotifier {
     _isLoading = true;
     _errorMessage = null;
     _selectedCountryCode = countryCode;
-    _selectedCountryName = countryName;
     _selectedTag = null;
-    _selectedTagName = null;
     _activeFilterTitle = 'إذاعات $countryName';
     _hasMore = true;
     notifyListeners();
@@ -144,9 +138,7 @@ class RadioProvider extends ChangeNotifier {
     _isLoading = true;
     _errorMessage = null;
     _selectedTag = tag;
-    _selectedTagName = tagName;
     _selectedCountryCode = null;
-    _selectedCountryName = null;
     _activeFilterTitle = 'إذاعات $tagName';
     _hasMore = true;
     notifyListeners();
