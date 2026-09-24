@@ -71,7 +71,8 @@ class _MainNavigationScreenState extends State<MainNavigationScreen> {
           index: _currentIndex,
           children: _screens,
         ),
-        bottomNavigationBar: Column(
+        bottomNavigationBar: SafeArea(
+        child: Column(
           mainAxisSize: MainAxisSize.min,
           children: [
             const MiniPlayer(),
@@ -111,6 +112,7 @@ class _MainNavigationScreenState extends State<MainNavigationScreen> {
               ),
             ),
           ],
+        ),
         ),
       ),
     );

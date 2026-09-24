@@ -572,17 +572,19 @@ class RadioProvider extends ChangeNotifier {
 
   // Switch between Favorites (Car Mode / Next / Prev)
   void playNextFavorite() {
-    if (_favorites.isEmpty) return;
-    int currentIndex = _favorites.indexWhere((s) => s.uuid == _currentStation?.uuid);
-    int nextIndex = (currentIndex + 1) % _favorites.length;
-    playStation(_favorites[nextIndex]);
+    final list = _favorites.isNotEmpty ? _favorites : _homeStations;
+    if (list.isEmpty) return;
+    int currentIndex = list.indexWhere((s) => s.uuid == _currentStation?.uuid);
+    int nextIndex = (currentIndex + 1) % list.length;
+    playStation(list[nextIndex]);
   }
 
   void playPreviousFavorite() {
-    if (_favorites.isEmpty) return;
-    int currentIndex = _favorites.indexWhere((s) => s.uuid == _currentStation?.uuid);
-    int prevIndex = (currentIndex - 1 + _favorites.length) % _favorites.length;
-    playStation(_favorites[prevIndex]);
+    final list = _favorites.isNotEmpty ? _favorites : _homeStations;
+    if (list.isEmpty) return;
+    int currentIndex = list.indexWhere((s) => s.uuid == _currentStation?.uuid);
+    int prevIndex = (currentIndex - 1 + list.length) % list.length;
+    playStation(list[prevIndex]);
   }
 
   // Clear History
@@ -635,6 +637,23 @@ class RadioProvider extends ChangeNotifier {
         _midGain = 4.0;
         _trebleGain = 3.0;
         _bassBoost = 0.0;
+        _audio.setSpeed(1.0);
+        _audio.setVolume(1.0);
+        break;
+      case 'بيز قوي (Bass Boost)':
+        _bassGain = 7.0;
+        _midGain = 1.0;
+        _trebleGain = 0.0;
+        _bassBoost = 0.8;
+        _audio.setVolume(1.3);
+        break;
+      case 'صوت محيطي 3D (قاعة كبرى)':
+        _bassGain = 5.0;
+        _midGain = -2.0;
+        _trebleGain = 6.0;
+        _bassBoost = 0.6;
+        _audio.setVolume(1.15);
+        _audio.setSpeed(1.0);
         break;
       case 'بيز قوي (Bass Boost)':
         _bassGain = 7.0;

@@ -1,25 +1,25 @@
+import 'dart:math' as math;
 import 'package:flutter/material.dart';
 import 'package:provider/provider.dart';
 import '../providers/radio_provider.dart';
 import '../widgets/station_card.dart';
 import '../constants/app_colors.dart';
 
-class MapCityPin {
+class GlobeCityPin {
   final String name;
   final String countryCode;
   final String flag;
-  final double x; // Pixel coordinates on a 1200 x 700 virtual canvas
-  final double y;
-  final String region; // عربي, أوروبا, آسيا, أمريكا, أوقيانوسيا
+  final double lat;
+  final double lon;
 
-  const MapCityPin({
+  const GlobeCityPin({
     required this.name,
     required this.countryCode,
     required this.flag,
-    required this.x,
-    required this.y,
-    required this.region,
-  });
+    required double latDeg,
+    required double lonDeg,
+  })  : lat = latDeg * math.pi / 180.0,
+        lon = lonDeg * math.pi / 180.0;
 }
 
 class MapExplorerScreen extends StatefulWidget {
@@ -30,77 +30,36 @@ class MapExplorerScreen extends StatefulWidget {
 }
 
 class _MapExplorerScreenState extends State<MapExplorerScreen> {
-  final TransformationController _transController = TransformationController();
-  static const double _canvasWidth = 1300.0;
-  static const double _canvasHeight = 750.0;
+  double _rotationX = 0.45;
+  double _rotationY = 0.55;
+  Offset _lastFocalPoint = Offset.zero;
 
-  // Well-spaced coordinates with minimum 80px distance between adjacent pins!
-  static const List<MapCityPin> _pins = [
-    // الوطن العربي والشرق الأوسط (موزعة بمسافات مريحة وواضحة جداً)
-    MapCityPin(name: 'القاهرة', countryCode: 'EG', flag: '🇪🇬', x: 670, y: 310, region: 'عربي'),
-    MapCityPin(name: 'مكة / الرياض', countryCode: 'SA', flag: '🇸🇦', x: 740, y: 370, region: 'عربي'),
-    MapCityPin(name: 'دبي', countryCode: 'AE', flag: '🇦🇪', x: 810, y: 360, region: 'عربي'),
-    MapCityPin(name: 'بغداد', countryCode: 'IQ', flag: '🇮🇶', x: 720, y: 280, region: 'عربي'),
-    MapCityPin(name: 'القدس / عمّان', countryCode: 'PS', flag: '🇵🇸', x: 690, y: 290, region: 'عربي'),
-    MapCityPin(name: 'تونس', countryCode: 'TN', flag: '🇹🇳', x: 600, y: 260, region: 'عربي'),
-    MapCityPin(name: 'الجزائر', countryCode: 'DZ', flag: '🇩🇿', x: 550, y: 275, region: 'عربي'),
-    MapCityPin(name: 'الدار البيضاء', countryCode: 'MA', flag: '🇲🇦', x: 480, y: 290, region: 'عربي'),
-
-    // أوروبا (متباعدة تماماً)
-    MapCityPin(name: 'إسطنبول', countryCode: 'TR', flag: '🇹🇷', x: 680, y: 240, region: 'أوروبا'),
-    MapCityPin(name: 'روما', countryCode: 'IT', flag: '🇮🇹', x: 610, y: 220, region: 'أوروبا'),
-    MapCityPin(name: 'مدريد', countryCode: 'ES', flag: '🇪🇸', x: 510, y: 240, region: 'أوروبا'),
-    MapCityPin(name: 'باريس', countryCode: 'FR', flag: '🇫🇷', x: 550, y: 190, region: 'أوروبا'),
-    MapCityPin(name: 'لندن', countryCode: 'GB', flag: '🇬🇧', x: 520, y: 160, region: 'أوروبا'),
-    MapCityPin(name: 'برلين', countryCode: 'DE', flag: '🇩🇪', x: 600, y: 160, region: 'أوروبا'),
-    MapCityPin(name: 'موسكو', countryCode: 'RU', flag: '🇷🇺', x: 730, y: 140, region: 'أوروبا'),
-
-    // آسيا وأوقيانوسيا
-    MapCityPin(name: 'طوكيو', countryCode: 'JP', flag: '🇯🇵', x: 1080, y: 290, region: 'آسيا'),
-    MapCityPin(name: 'سيدني', countryCode: 'AU', flag: '🇦🇺', x: 1120, y: 580, region: 'أوقيانوسيا'),
-
-    // الأمريكتين
-    MapCityPin(name: 'نيويورك', countryCode: 'US', flag: '🇺🇸', x: 300, y: 240, region: 'أمريكا'),
-    MapCityPin(name: 'ريو دي جانيرو', countryCode: 'BR', flag: '🇧🇷', x: 410, y: 530, region: 'أمريكا'),
+  static const List<GlobeCityPin> _cities = [
+    GlobeCityPin(name: 'القاهرة', countryCode: 'EG', flag: '🇪🇬', latDeg: 30.0, lonDeg: 31.2),
+    GlobeCityPin(name: 'مكة المكرمة', countryCode: 'SA', flag: '🇸🇦', latDeg: 21.4, lonDeg: 39.8),
+    GlobeCityPin(name: 'الرياض', countryCode: 'SA', flag: '🇸🇦', latDeg: 24.7, lonDeg: 46.7),
+    GlobeCityPin(name: 'دبي', countryCode: 'AE', flag: '🇦🇪', latDeg: 25.2, lonDeg: 55.3),
+    GlobeCityPin(name: 'بغداد', countryCode: 'IQ', flag: '🇮🇶', latDeg: 33.3, lonDeg: 44.4),
+    GlobeCityPin(name: 'القدس / عمّان', countryCode: 'PS', flag: '🇵🇸', latDeg: 31.9, lonDeg: 35.5),
+    GlobeCityPin(name: 'تونس', countryCode: 'TN', flag: '🇹🇳', latDeg: 36.8, lonDeg: 10.2),
+    GlobeCityPin(name: 'الجزائر', countryCode: 'DZ', flag: '🇩🇿', latDeg: 36.7, lonDeg: 3.1),
+    GlobeCityPin(name: 'الدار البيضاء', countryCode: 'MA', flag: '🇲🇦', latDeg: 33.6, lonDeg: -7.6),
+    GlobeCityPin(name: 'إسطنبول', countryCode: 'TR', flag: '🇹🇷', latDeg: 41.0, lonDeg: 28.9),
+    GlobeCityPin(name: 'روما', countryCode: 'IT', flag: '🇮🇹', latDeg: 41.9, lonDeg: 12.5),
+    GlobeCityPin(name: 'مدريد', countryCode: 'ES', flag: '🇪🇸', latDeg: 40.4, lonDeg: -3.7),
+    GlobeCityPin(name: 'باريس', countryCode: 'FR', flag: '🇫🇷', latDeg: 48.8, lonDeg: 2.3),
+    GlobeCityPin(name: 'لندن', countryCode: 'GB', flag: '🇬🇧', latDeg: 51.5, lonDeg: -0.1),
+    GlobeCityPin(name: 'برلين', countryCode: 'DE', flag: '🇩🇪', latDeg: 52.5, lonDeg: 13.4),
+    GlobeCityPin(name: 'موسكو', countryCode: 'RU', flag: '🇷🇺', latDeg: 55.7, lonDeg: 37.6),
+    GlobeCityPin(name: 'نيويورك', countryCode: 'US', flag: '🇺🇸', latDeg: 40.7, lonDeg: -74.0),
+    GlobeCityPin(name: 'طوكيو', countryCode: 'JP', flag: '🇯🇵', latDeg: 35.7, lonDeg: 139.7),
+    GlobeCityPin(name: 'سيدني', countryCode: 'AU', flag: '🇦🇺', latDeg: -33.8, lonDeg: 151.2),
+    GlobeCityPin(name: 'ريو دي جانيرو', countryCode: 'BR', flag: '🇧🇷', latDeg: -22.9, lonDeg: -43.2),
   ];
 
-  MapCityPin? _selectedPin;
-  String _selectedRegion = 'الكل';
+  GlobeCityPin? _selectedPin;
 
-  @override
-  void initState() {
-    super.initState();
-    // Center initially on Middle East / Cairo
-    WidgetsBinding.instance.addPostFrameCallback((_) {
-      final size = MediaQuery.of(context).size;
-      final dx = -(670 - size.width / 2);
-      final dy = -(310 - size.height / 2);
-      _transController.value = Matrix4.identity()..translate(dx, dy);
-    });
-  }
-
-  void _flyToRegion(String region) {
-    setState(() => _selectedRegion = region);
-    final size = MediaQuery.of(context).size;
-    double targetX = 670;
-    double targetY = 310;
-
-    if (region == 'عربي') {
-      targetX = 670; targetY = 310;
-    } else if (region == 'أوروبا') {
-      targetX = 580; targetY = 200;
-    } else if (region == 'أمريكا') {
-      targetX = 350; targetY = 350;
-    } else if (region == 'آسيا') {
-      targetX = 1000; targetY = 320;
-    }
-
-    final dx = -(targetX - size.width / 2);
-    final dy = -(targetY - size.height / 2);
-    _transController.value = Matrix4.identity()..translate(dx, dy);
-  }
-
-  void _onPinTapped(MapCityPin pin) {
+  void _onCityTapped(GlobeCityPin pin) {
     setState(() => _selectedPin = pin);
     final radio = context.read<RadioProvider>();
     radio.filterByCountry(pin.countryCode, pin.name);
@@ -172,178 +131,207 @@ class _MapExplorerScreenState extends State<MapExplorerScreen> {
 
   @override
   Widget build(BuildContext context) {
+    final size = MediaQuery.of(context).size;
+    final globeRadius = (math.min(size.width, size.height) * 0.42).clamp(140.0, 220.0);
+
     return Scaffold(
-      backgroundColor: const Color(0xFF070B12),
+      backgroundColor: const Color(0xFF060910),
       appBar: AppBar(
         backgroundColor: Colors.transparent,
         elevation: 0,
         title: const Text(
-          'خريطة العالم التفاعلية 🗺️',
+          'الكرة الأرضية التفاعلية 3D 🌍',
           style: TextStyle(color: AppColors.textPrimary, fontWeight: FontWeight.bold),
         ),
       ),
-      body: Stack(
-        children: [
-          // Spacious Panoramic Interactive Viewer (Constrained false = full smooth space!)
-          InteractiveViewer(
-            transformationController: _transController,
-            minScale: 0.7,
-            maxScale: 3.5,
-            constrained: false,
-            boundaryMargin: const EdgeInsets.all(200),
-            child: Container(
-              width: _canvasWidth,
-              height: _canvasHeight,
-              color: const Color(0xFF0A0F1A),
-              child: Stack(
-                children: [
-                  // Stylized Globe Grid & Continents
-                  CustomPaint(
-                    size: const Size(_canvasWidth, _canvasHeight),
-                    painter: _SpaciousGlobePainter(),
+      body: SafeArea(
+        child: Column(
+          children: [
+            Padding(
+              padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 8),
+              child: Container(
+                padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 8),
+                decoration: BoxDecoration(
+                  color: AppColors.surface.withOpacity(0.8),
+                  borderRadius: BorderRadius.circular(12),
+                  border: Border.all(color: AppColors.cardBorder),
+                ),
+                child: const Row(
+                  children: [
+                    Icon(Icons.swipe, color: AppColors.accent, size: 20),
+                    SizedBox(width: 8),
+                    Expanded(
+                      child: Text(
+                        'حرّك الكرة الأرضية بإصبعك في أي اتجاه ثلاثي الأبعاد والمس أي إذاعة للاستماع المباشر.',
+                        style: TextStyle(color: AppColors.textSecondary, fontSize: 12),
+                      ),
+                    ),
+                  ],
+                ),
+              ),
+            ),
+            Expanded(
+              child: Center(
+                child: GestureDetector(
+                  onScaleStart: (details) => _lastFocalPoint = details.focalPoint,
+                  onScaleUpdate: (details) {
+                    final delta = details.focalPoint - _lastFocalPoint;
+                    _lastFocalPoint = details.focalPoint;
+                    setState(() {
+                      _rotationY += delta.dx * 0.008;
+                      _rotationX = (_rotationX - delta.dy * 0.008).clamp(-0.8, 0.8);
+                    });
+                  },
+                  child: Stack(
+                    alignment: Alignment.center,
+                    children: [
+                      CustomPaint(
+                        size: Size(globeRadius * 2, globeRadius * 2),
+                        painter: _Globe3DPainter(
+                          radius: globeRadius,
+                          rotationX: _rotationX,
+                          rotationY: _rotationY,
+                        ),
+                      ),
+                      for (final pin in _cities)
+                        _buildProjectedPin(pin, globeRadius),
+                    ],
                   ),
-
-                  // Pins with plenty of breathing space
-                  for (final pin in _pins)
-                    Positioned(
-                      left: pin.x - 30,
-                      top: pin.y - 25,
-                      child: GestureDetector(
-                        onTap: () => _onPinTapped(pin),
-                        child: Column(
-                          mainAxisSize: MainAxisSize.min,
-                          children: [
-                            Container(
-                              padding: const EdgeInsets.all(8),
-                              decoration: BoxDecoration(
-                                color: _selectedPin?.countryCode == pin.countryCode
-                                    ? AppColors.accent
-                                    : AppColors.surface,
-                                shape: BoxShape.circle,
-                                border: Border.all(
-                                  color: _selectedPin?.countryCode == pin.countryCode
-                                      ? Colors.white
-                                      : AppColors.accent,
-                                  width: 2,
-                                ),
-                                boxShadow: [
-                                  BoxShadow(
-                                    color: AppColors.accent.withOpacity(0.4),
-                                    blurRadius: 12,
-                                    spreadRadius: 3,
-                                  ),
-                                ],
-                              ),
-                              child: Text(pin.flag, style: const TextStyle(fontSize: 20)),
-                            ),
-                            const SizedBox(height: 4),
-                            Container(
-                              padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 2),
-                              decoration: BoxDecoration(
-                                color: Colors.black.withOpacity(0.85),
-                                borderRadius: BorderRadius.circular(8),
-                                border: Border.all(color: AppColors.cardBorder, width: 0.8),
-                              ),
-                              child: Text(
-                                pin.name,
-                                style: const TextStyle(color: Colors.white, fontSize: 11, fontWeight: FontWeight.bold),
-                              ),
-                            ),
-                          ],
-                        ),
-                      ),
-                    ),
-                ],
+                ),
               ),
             ),
-          ),
+            const SizedBox(height: 20),
+          ],
+        ),
+      ),
+    );
+  }
 
-          // Region Quick Navigation Tabs at Top
-          Positioned(
-            top: 12,
-            left: 12,
-            right: 12,
-            child: SizedBox(
-              height: 38,
-              child: ListView(
-                scrollDirection: Axis.horizontal,
-                children: [
-                  for (final r in ['الكل', 'عربي', 'أوروبا', 'أمريكا', 'آسيا'])
-                    Padding(
-                      padding: const EdgeInsets.symmetric(horizontal: 4),
-                      child: ActionChip(
-                        backgroundColor: _selectedRegion == r ? AppColors.accent : AppColors.surface.withOpacity(0.9),
-                        label: Text(
-                          r == 'عربي' ? '🕌 الوطن العربي' : r == 'أوروبا' ? '🏰 أوروبا' : r == 'أمريكا' ? '🗽 أمريكا' : r == 'آسيا' ? '⛩️ آسيا' : '🌍 الكل',
-                          style: TextStyle(
-                            color: _selectedRegion == r ? Colors.black87 : AppColors.textPrimary,
-                            fontWeight: FontWeight.bold,
-                            fontSize: 11,
-                          ),
-                        ),
-                        onPressed: () => _flyToRegion(r),
-                      ),
-                    ),
-                ],
-              ),
-            ),
-          ),
+  Widget _buildProjectedPin(GlobeCityPin pin, double R) {
+    final cosLat = math.cos(pin.lat);
+    final sinLat = math.sin(pin.lat);
+    final deltaLon = pin.lon - _rotationY;
 
-          // Bottom Instruction Banner
-          Positioned(
-            left: 16,
-            right: 16,
-            bottom: 20,
-            child: Container(
-              padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 10),
+    final x3d = R * cosLat * math.sin(deltaLon);
+    final y3d = -R * (sinLat * math.cos(_rotationX) - cosLat * math.sin(_rotationX) * math.cos(deltaLon));
+    final z3d = R * (sinLat * math.sin(_rotationX) + cosLat * math.cos(_rotationX) * math.cos(deltaLon));
+
+    if (z3d <= 0) return const SizedBox.shrink();
+
+    final isSelected = _selectedPin?.countryCode == pin.countryCode;
+
+    return Transform.translate(
+      offset: Offset(x3d, y3d),
+      child: GestureDetector(
+        onTap: () => _onCityTapped(pin),
+        child: Column(
+          mainAxisSize: MainAxisSize.min,
+          children: [
+            Container(
+              padding: const EdgeInsets.all(5),
               decoration: BoxDecoration(
-                color: AppColors.surface.withOpacity(0.92),
-                borderRadius: BorderRadius.circular(16),
-                border: Border.all(color: AppColors.cardBorder),
-              ),
-              child: Row(
-                children: const [
-                  Icon(Icons.touch_app, color: AppColors.accent, size: 20),
-                  SizedBox(width: 10),
-                  Expanded(
-                    child: Text(
-                      'اسحب وحرّك الخريطة وانقر على أي علم للاستماع المباشر من تلك المدينة.',
-                      style: TextStyle(color: AppColors.textSecondary, fontSize: 12),
-                    ),
+                color: isSelected ? AppColors.accent : const Color(0xFF182232).withOpacity(0.95),
+                shape: BoxShape.circle,
+                border: Border.all(color: isSelected ? Colors.white : AppColors.accent, width: 1.5),
+                boxShadow: [
+                  BoxShadow(
+                    color: AppColors.accent.withOpacity(0.6),
+                    blurRadius: 10,
+                    spreadRadius: 2,
                   ),
                 ],
               ),
+              child: Text(pin.flag, style: const TextStyle(fontSize: 14)),
             ),
-          ),
-        ],
+            Container(
+              padding: const EdgeInsets.symmetric(horizontal: 5, vertical: 1),
+              margin: const EdgeInsets.only(top: 2),
+              decoration: BoxDecoration(
+                color: Colors.black87,
+                borderRadius: BorderRadius.circular(4),
+              ),
+              child: Text(
+                pin.name,
+                style: const TextStyle(color: Colors.white, fontSize: 8, fontWeight: FontWeight.bold),
+              ),
+            ),
+          ],
+        ),
       ),
     );
   }
 }
 
-class _SpaciousGlobePainter extends CustomPainter {
+class _Globe3DPainter extends CustomPainter {
+  final double radius;
+  final double rotationX;
+  final double rotationY;
+
+  _Globe3DPainter({required this.radius, required this.rotationX, required this.rotationY});
+
   @override
   void paint(Canvas canvas, Size size) {
-    final gridPaint = Paint()
-      ..color = const Color(0xFF1E293B).withOpacity(0.4)
+    final center = Offset(size.width / 2, size.height / 2);
+
+    final glowPaint = Paint()
+      ..shader = RadialGradient(
+        colors: [
+          const Color(0xFF00CEC9).withOpacity(0.3),
+          const Color(0xFF00CEC9).withOpacity(0.0),
+        ],
+        stops: const [0.75, 1.0],
+      ).createShader(Rect.fromCircle(center: center, radius: radius * 1.25));
+    canvas.drawCircle(center, radius * 1.25, glowPaint);
+
+    final spherePaint = Paint()
+      ..shader = RadialGradient(
+        center: const Alignment(-0.35, -0.35),
+        radius: 0.9,
+        colors: [
+          const Color(0xFF1E293B),
+          const Color(0xFF0F172A),
+          const Color(0xFF050811),
+        ],
+        stops: const [0.0, 0.6, 1.0],
+      ).createShader(Rect.fromCircle(center: center, radius: radius));
+    canvas.drawCircle(center, radius, spherePaint);
+
+    final linePaint = Paint()
+      ..color = const Color(0xFF00CEC9).withOpacity(0.25)
       ..strokeWidth = 1.0
       ..style = PaintingStyle.stroke;
 
-    // Draw Longitude and Latitude grid
-    for (double x = 0; x <= size.width; x += size.width / 16) {
-      canvas.drawLine(Offset(x, 0), Offset(x, size.height), gridPaint);
-    }
-    for (double y = 0; y <= size.height; y += size.height / 10) {
-      canvas.drawLine(Offset(0, y), Offset(size.width, y), gridPaint);
+    for (int i = 0; i < 12; i++) {
+      final lonAngle = (i * math.pi / 6) - rotationY;
+      final ellipseWidth = (radius * math.cos(lonAngle)).abs();
+      canvas.save();
+      canvas.translate(center.dx, center.dy);
+      canvas.rotate(-rotationX * 0.4);
+      canvas.drawOval(
+        Rect.fromCenter(center: Offset.zero, width: ellipseWidth * 2, height: radius * 2),
+        linePaint,
+      );
+      canvas.restore();
     }
 
-    // Draw Equator Line
-    final equatorPaint = Paint()
-      ..color = AppColors.accent.withOpacity(0.3)
-      ..strokeWidth = 1.8;
-    canvas.drawLine(Offset(0, size.height * 0.5), Offset(size.width, size.height * 0.5), equatorPaint);
+    for (int i = -3; i <= 3; i++) {
+      final latAngle = i * (math.pi / 8);
+      final rLat = radius * math.cos(latAngle);
+      final yLat = -radius * math.sin(latAngle) * math.cos(rotationX);
+      canvas.drawOval(
+        Rect.fromCenter(center: Offset(center.dx, center.dy + yLat), width: rLat * 2, height: (rLat * 0.35 * math.sin(rotationX)).abs() + 2),
+        linePaint,
+      );
+    }
+
+    final borderPaint = Paint()
+      ..color = const Color(0xFF00CEC9).withOpacity(0.6)
+      ..strokeWidth = 2.0
+      ..style = PaintingStyle.stroke;
+    canvas.drawCircle(center, radius, borderPaint);
   }
 
   @override
-  bool shouldRepaint(covariant CustomPainter oldDelegate) => false;
+  bool shouldRepaint(covariant _Globe3DPainter oldDelegate) =>
+      oldDelegate.rotationX != rotationX || oldDelegate.rotationY != rotationY;
 }

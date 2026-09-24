@@ -13,6 +13,91 @@ import '../widgets/background_widget.dart';
 
 class PlayerScreen extends StatelessWidget {
 
+
+class _LiveSpectrumVisualizer extends StatefulWidget {
+  final bool isPlaying;
+  const _LiveSpectrumVisualizer({required this.isPlaying});
+
+  @override
+  State<_LiveSpectrumVisualizer> createState() => _LiveSpectrumVisualizerState();
+}
+
+class _LiveSpectrumVisualizerState extends State<_LiveSpectrumVisualizer> with SingleTickerProviderStateMixin {
+  late AnimationController _controller;
+
+  @override
+  void initState() {
+    super.initState();
+    _controller = AnimationController(vsync: this, duration: const Duration(milliseconds: 700))..repeat(reverse: true);
+  }
+
+  @override
+  void dispose() {
+    _controller.dispose();
+    super.dispose();
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    return AnimatedBuilder(
+      animation: _controller,
+      builder: (context, child) {
+        final t = _controller.value;
+        final heights = [
+          widget.isPlaying ? (10.0 + 26.0 * (0.5 + 0.5 * (t * 1.8).remainder(1.0))) : 4.0,
+          widget.isPlaying ? (14.0 + 30.0 * (0.5 + 0.5 * ((t + 0.2) * 1.5).remainder(1.0))) : 5.0,
+          widget.isPlaying ? (8.0 + 24.0 * (0.5 + 0.5 * ((t + 0.4) * 2.1).remainder(1.0))) : 4.0,
+          widget.isPlaying ? (18.0 + 28.0 * (0.5 + 0.5 * ((t + 0.6) * 1.4).remainder(1.0))) : 6.0,
+          widget.isPlaying ? (12.0 + 34.0 * (0.5 + 0.5 * ((t + 0.1) * 2.3).remainder(1.0))) : 4.0,
+          widget.isPlaying ? (20.0 + 26.0 * (0.5 + 0.5 * ((t + 0.8) * 1.7).remainder(1.0))) : 6.0,
+          widget.isPlaying ? (16.0 + 32.0 * (0.5 + 0.5 * ((t + 0.3) * 1.9).remainder(1.0))) : 5.0,
+          widget.isPlaying ? (22.0 + 24.0 * (0.5 + 0.5 * ((t + 0.5) * 2.2).remainder(1.0))) : 7.0,
+          widget.isPlaying ? (14.0 + 30.0 * (0.5 + 0.5 * ((t + 0.7) * 1.6).remainder(1.0))) : 5.0,
+          widget.isPlaying ? (10.0 + 26.0 * (0.5 + 0.5 * ((t + 0.2) * 2.0).remainder(1.0))) : 4.0,
+          widget.isPlaying ? (16.0 + 28.0 * (0.5 + 0.5 * ((t + 0.9) * 1.3).remainder(1.0))) : 5.0,
+          widget.isPlaying ? (8.0 + 22.0 * (0.5 + 0.5 * ((t + 0.4) * 2.4).remainder(1.0))) : 4.0,
+        ];
+
+        return SizedBox(
+          height: 50,
+          child: Row(
+            mainAxisAlignment: MainAxisAlignment.center,
+            crossAxisAlignment: CrossAxisAlignment.end,
+            children: [
+              for (final h in heights)
+                Container(
+                  width: 5,
+                  height: h,
+                  margin: const EdgeInsets.symmetric(horizontal: 3),
+                  decoration: BoxDecoration(
+                    gradient: LinearGradient(
+                      colors: [
+                        AppColors.accent,
+                        widget.isPlaying ? AppColors.accentPink : AppColors.cardBorder,
+                      ],
+                      begin: Alignment.bottomCenter,
+                      end: Alignment.topCenter,
+                    ),
+                    borderRadius: BorderRadius.circular(3),
+                    boxShadow: widget.isPlaying
+                        ? [
+                            BoxShadow(
+                              color: AppColors.accent.withOpacity(0.4),
+                              blurRadius: 6,
+                              offset: const Offset(0, -2),
+                            ),
+                          ]
+                        : null,
+                  ),
+                ),
+            ],
+          ),
+        );
+      },
+    );
+  }
+}
+
   Widget _buildAudioSpectrumVisualizer(bool isPlaying) {
     const barHeights = [14.0, 26.0, 38.0, 20.0, 32.0, 42.0, 18.0, 28.0, 36.0, 22.0];
     return SizedBox(
@@ -875,7 +960,7 @@ class PlayerScreen extends StatelessWidget {
                 ),
 
                 // Live Audio Spectrum Visualizer 📊
-                _buildAudioSpectrumVisualizer(radio.isPlaying),
+                _LiveSpectrumVisualizer(isPlaying: radio.isPlaying),
 
                 // Station Info
                 Column(

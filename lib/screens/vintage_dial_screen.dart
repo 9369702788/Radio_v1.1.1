@@ -83,6 +83,71 @@ class _VintageDialScreenState extends State<VintageDialScreen> {
                 ),
                 child: Column(
                   children: [
+
+                    // Vintage Glowing Green Magic Eye Tube & Stereo VU Meter
+                    Container(
+                      height: 54,
+                      padding: const EdgeInsets.symmetric(horizontal: 16),
+                      decoration: BoxDecoration(
+                        color: const Color(0xFF0A0704),
+                        borderRadius: BorderRadius.circular(14),
+                        border: Border.all(color: const Color(0xFF5A452D)),
+                      ),
+                      child: Row(
+                        mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                        children: [
+                          Row(
+                            children: [
+                              Container(
+                                width: 28,
+                                height: 28,
+                                decoration: BoxDecoration(
+                                  shape: BoxShape.circle,
+                                  color: radio.isPlaying ? const Color(0xFF00FF66) : const Color(0xFF003311),
+                                  boxShadow: radio.isPlaying
+                                      ? [
+                                          BoxShadow(
+                                            color: const Color(0xFF00FF66).withOpacity(0.6),
+                                            blurRadius: 10,
+                                            spreadRadius: 2,
+                                          ),
+                                        ]
+                                      : null,
+                                ),
+                                child: const Center(
+                                  child: Icon(Icons.lens_blur, color: Colors.black54, size: 14),
+                                ),
+                              ),
+                              const SizedBox(width: 8),
+                              const Text('صمام العين السحرية', style: TextStyle(color: Color(0xFF8C6D46), fontSize: 10, fontWeight: FontWeight.bold)),
+                            ],
+                          ),
+                          Row(
+                            children: [
+                              for (double h in [12.0, 24.0, 36.0, 18.0, 30.0, 14.0, 28.0, 20.0])
+                                Container(
+                                  width: 4,
+                                  height: radio.isPlaying ? h : 4,
+                                  margin: const EdgeInsets.symmetric(horizontal: 2),
+                                  decoration: BoxDecoration(
+                                    color: const Color(0xFFE5C07B),
+                                    borderRadius: BorderRadius.circular(2),
+                                    boxShadow: radio.isPlaying
+                                        ? [
+                                            BoxShadow(
+                                              color: const Color(0xFFE5C07B).withOpacity(0.5),
+                                              blurRadius: 4,
+                                            ),
+                                          ]
+                                        : null,
+                                  ),
+                                ),
+                            ],
+                          ),
+                        ],
+                      ),
+                    ),
+                    const SizedBox(height: 14),
                     // Vintage Speaker Grill Texture
                     Container(
                       height: 50,
