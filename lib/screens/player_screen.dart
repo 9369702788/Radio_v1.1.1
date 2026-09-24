@@ -1,7 +1,3 @@
-import 'battery_saver_screen.dart';
-import 'vintage_dial_screen.dart';
-import '../services/ambient_sound_service.dart';
-import 'car_mode_screen.dart';
 import 'package:flutter/material.dart';
 import 'package:provider/provider.dart';
 import 'package:cached_network_image/cached_network_image.dart';
@@ -10,19 +6,20 @@ import '../providers/radio_provider.dart';
 import '../models/radio_station.dart';
 import '../constants/app_colors.dart';
 import '../widgets/background_widget.dart';
+import '../services/ambient_sound_service.dart';
+import 'battery_saver_screen.dart';
+import 'car_mode_screen.dart';
 
-class PlayerScreen extends StatelessWidget {
-
-
-class _LiveSpectrumVisualizer extends StatefulWidget {
+// Standalone Live Animated Audio Spectrum Visualizer Widget (Top Level)
+class LiveSpectrumVisualizer extends StatefulWidget {
   final bool isPlaying;
-  const _LiveSpectrumVisualizer({required this.isPlaying});
+  const LiveSpectrumVisualizer({super.key, required this.isPlaying});
 
   @override
-  State<_LiveSpectrumVisualizer> createState() => _LiveSpectrumVisualizerState();
+  State<LiveSpectrumVisualizer> createState() => _LiveSpectrumVisualizerState();
 }
 
-class _LiveSpectrumVisualizerState extends State<_LiveSpectrumVisualizer> with SingleTickerProviderStateMixin {
+class _LiveSpectrumVisualizerState extends State<LiveSpectrumVisualizer> with SingleTickerProviderStateMixin {
   late AnimationController _controller;
 
   @override
@@ -59,7 +56,7 @@ class _LiveSpectrumVisualizerState extends State<_LiveSpectrumVisualizer> with S
         ];
 
         return SizedBox(
-          height: 50,
+          height: 44,
           child: Row(
             mainAxisAlignment: MainAxisAlignment.center,
             crossAxisAlignment: CrossAxisAlignment.end,
@@ -68,7 +65,7 @@ class _LiveSpectrumVisualizerState extends State<_LiveSpectrumVisualizer> with S
                 Container(
                   width: 5,
                   height: h,
-                  margin: const EdgeInsets.symmetric(horizontal: 3),
+                  margin: const EdgeInsets.symmetric(horizontal: 2.5),
                   decoration: BoxDecoration(
                     gradient: LinearGradient(
                       colors: [
@@ -98,195 +95,180 @@ class _LiveSpectrumVisualizerState extends State<_LiveSpectrumVisualizer> with S
   }
 }
 
-  Widget _buildAudioSpectrumVisualizer(bool isPlaying) {
-    const barHeights = [14.0, 26.0, 38.0, 20.0, 32.0, 42.0, 18.0, 28.0, 36.0, 22.0];
-    return SizedBox(
-      height: 44,
-      child: Row(
-        mainAxisAlignment: MainAxisAlignment.center,
-        crossAxisAlignment: CrossAxisAlignment.end,
-        children: [
-          for (int i = 0; i < barHeights.length; i++)
-            Container(
-              width: 5,
-              height: isPlaying ? barHeights[i] : 6.0,
-              margin: const EdgeInsets.symmetric(horizontal: 2.5),
-              decoration: BoxDecoration(
-                gradient: const LinearGradient(
-                  colors: [AppColors.accent, AppColors.accentPink],
-                  begin: Alignment.bottomCenter,
-                  end: Alignment.topCenter,
-                ),
-                borderRadius: BorderRadius.circular(3),
-              ),
+class PlayerScreen extends StatelessWidget {
+  const PlayerScreen({super.key});
+
+  void _showSleepTimerDialog(BuildContext context, RadioProvider radio) {
+    showModalBottomSheet(
+      context: context,
+      backgroundColor: AppColors.surface,
+      shape: const RoundedRectangleBorder(borderRadius: BorderRadius.vertical(top: Radius.circular(20))),
+      builder: (ctx) => Padding(
+        padding: const EdgeInsets.all(20),
+        child: Column(
+          mainAxisSize: MainAxisSize.min,
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: [
+            const Text(
+              'مؤقت النوم الهادئ (مع الخفوت التدريجي) ⏳',
+              style: TextStyle(color: AppColors.textPrimary, fontSize: 17, fontWeight: FontWeight.bold),
             ),
-        ],
+            const SizedBox(height: 14),
+            for (final m in [15, 30, 45, 60, 90])
+              ListTile(
+                title: Text('$m دقيقة', style: const TextStyle(color: AppColors.textPrimary)),
+                trailing: radio.sleepTimerMinutes == m ? const Icon(Icons.check, color: AppColors.accent) : null,
+                onTap: () {
+                  radio.setSmartFadeSleepTimer(m);
+                  Navigator.pop(ctx);
+                },
+              ),
+            if (radio.sleepTimerMinutes != null)
+              ListTile(
+                title: const Text('إلغاء المؤقت', style: TextStyle(color: AppColors.error)),
+                onTap: () {
+                  radio.setSleepTimer(0);
+                  Navigator.pop(ctx);
+                },
+              ),
+          ],
+        ),
       ),
     );
   }
 
-
-  void _showRemindersDialog(BuildContext context, RadioProvider radio) {
-    final titleCtrl = TextEditingController();
-    TimeOfDay selectedTime = const TimeOfDay(hour: 13, minute: 0);
-    List<int> selectedDays = [];
-
+  void _showEqualizerSheet(BuildContext context, RadioProvider radio) {
     showModalBottomSheet(
       context: context,
       backgroundColor: AppColors.surface,
       isScrollControlled: true,
       shape: const RoundedRectangleBorder(borderRadius: BorderRadius.vertical(top: Radius.circular(24))),
       builder: (ctx) => StatefulBuilder(
-        builder: (ctx, setDialogState) {
+        builder: (ctx, setSheetState) {
           return Padding(
-            padding: EdgeInsets.only(
-              left: 20,
-              right: 20,
-              top: 20,
-              bottom: MediaQuery.of(ctx).viewInsets.bottom + 20,
-            ),
-            child: SingleChildScrollView(
-              child: Column(
-                mainAxisSize: MainAxisSize.min,
-                crossAxisAlignment: CrossAxisAlignment.start,
-                children: [
-                  Row(
-                    children: const [
-                      Icon(Icons.calendar_month, color: AppColors.accent, size: 22),
-                      SizedBox(width: 8),
-                      Text(
-                        'جدول البرامج والتنبيهات المجدولة 📅',
-                        style: TextStyle(color: AppColors.textPrimary, fontSize: 17, fontWeight: FontWeight.bold),
-                      ),
-                    ],
+            padding: const EdgeInsets.fromLTRB(20, 16, 20, 24),
+            child: Column(
+              mainAxisSize: MainAxisSize.min,
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                Center(
+                  child: Container(
+                    width: 40,
+                    height: 4,
+                    decoration: BoxDecoration(color: AppColors.cardBorder, borderRadius: BorderRadius.circular(2)),
                   ),
-                  const SizedBox(height: 6),
-                  Text(
-                    'إذاعة: ${radio.currentStation?.name ?? ""}',
-                    style: const TextStyle(color: AppColors.textSecondary, fontSize: 13),
-                  ),
-                  const SizedBox(height: 14),
-
-                  TextField(
-                    controller: titleCtrl,
-                    style: const TextStyle(color: AppColors.textPrimary),
-                    decoration: InputDecoration(
-                      labelText: 'اسم البرنامج (مثال: خطبة الجمعة، صلاة الفجر، أخبار الرياضة)',
-                      labelStyle: const TextStyle(color: AppColors.textSecondary, fontSize: 12),
-                      filled: true,
-                      fillColor: AppColors.surfaceLight,
-                      border: OutlineInputBorder(borderRadius: BorderRadius.circular(12)),
+                ),
+                const SizedBox(height: 16),
+                Row(
+                  children: [
+                    const Icon(Icons.tune, color: AppColors.accent, size: 22),
+                    const SizedBox(width: 8),
+                    const Text(
+                      'معادل الصوت و Bass Boost 🎛️',
+                      style: TextStyle(color: AppColors.textPrimary, fontSize: 18, fontWeight: FontWeight.bold),
                     ),
-                  ),
-                  const SizedBox(height: 14),
-
-                  // Pick Time
-                  Row(
-                    children: [
-                      const Text('وقت التنبيه والتشغيل:', style: TextStyle(color: AppColors.textPrimary, fontSize: 13)),
-                      const Spacer(),
-                      ElevatedButton.icon(
-                        style: ElevatedButton.styleFrom(backgroundColor: AppColors.surfaceLight),
-                        icon: const Icon(Icons.access_time, color: AppColors.accent, size: 18),
-                        label: Text(selectedTime.format(context), style: const TextStyle(color: AppColors.textPrimary)),
-                        onPressed: () async {
-                          final picked = await showTimePicker(context: context, initialTime: selectedTime);
-                          if (picked != null) {
-                            setDialogState(() => selectedTime = picked);
-                          }
-                        },
+                    const Spacer(),
+                    Container(
+                      padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 4),
+                      decoration: BoxDecoration(
+                        color: AppColors.primary.withOpacity(0.2),
+                        borderRadius: BorderRadius.circular(10),
                       ),
+                      child: Text(
+                        radio.activePreset,
+                        style: const TextStyle(color: AppColors.accent, fontSize: 12, fontWeight: FontWeight.bold),
+                      ),
+                    ),
+                  ],
+                ),
+                const SizedBox(height: 14),
+
+                // Presets Horizontal List
+                SizedBox(
+                  height: 38,
+                  child: ListView(
+                    scrollDirection: Axis.horizontal,
+                    children: [
+                      for (final p in ['طبيعي', 'قرآن / صوت نقي', 'بيز قوي (Bass Boost)', 'صوت محيطي 3D (قاعة كبرى)', 'كلاسيك', 'بوب', 'جاز'])
+                        Padding(
+                          padding: const EdgeInsets.symmetric(horizontal: 4),
+                          child: ChoiceChip(
+                            label: Text(p, style: const TextStyle(fontSize: 11)),
+                            selected: radio.activePreset == p,
+                            selectedColor: AppColors.accent,
+                            backgroundColor: AppColors.surfaceLight,
+                            labelStyle: TextStyle(
+                              color: radio.activePreset == p ? Colors.black87 : AppColors.textPrimary,
+                              fontWeight: radio.activePreset == p ? FontWeight.bold : FontWeight.normal,
+                            ),
+                            onSelected: (_) {
+                              radio.applyEqualizerPreset(p);
+                              setSheetState(() {});
+                            },
+                          ),
+                        ),
                     ],
                   ),
-                  const SizedBox(height: 14),
+                ),
 
-                  // Pick Days
-                  const Text('الأيام المحددة:', style: TextStyle(color: AppColors.textSecondary, fontSize: 12)),
-                  const SizedBox(height: 6),
-                  Wrap(
-                    spacing: 6,
-                    children: [
-                      {'name': 'الجمعة', 'd': 5},
-                      {'name': 'السبت', 'd': 6},
-                      {'name': 'الأحد', 'd': 7},
-                      {'name': 'الإثنين', 'd': 1},
-                      {'name': 'الثلاثاء', 'd': 2},
-                      {'name': 'الأربعاء', 'd': 3},
-                      {'name': 'الخميس', 'd': 4},
-                    ].map((item) {
-                      final dayNum = item['d'] as int;
-                      final isSel = selectedDays.contains(dayNum);
-                      return FilterChip(
-                        label: Text(item['name'] as String, style: const TextStyle(fontSize: 11)),
-                        selected: isSel,
-                        selectedColor: AppColors.accent,
-                        backgroundColor: AppColors.surfaceLight,
-                        labelStyle: TextStyle(color: isSel ? Colors.black87 : AppColors.textPrimary),
-                        onSelected: (val) {
-                          setDialogState(() {
-                            if (val) {
-                              selectedDays.add(dayNum);
-                            } else {
-                              selectedDays.remove(dayNum);
-                            }
-                          });
-                        },
-                      );
-                    }).toList(),
-                  ),
-                  const SizedBox(height: 18),
+                const SizedBox(height: 20),
 
-                  SizedBox(
-                    width: double.infinity,
-                    child: ElevatedButton.icon(
-                      style: ElevatedButton.styleFrom(
-                        backgroundColor: AppColors.primary,
-                        padding: const EdgeInsets.symmetric(vertical: 14),
-                        shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
-                      ),
-                      icon: const Icon(Icons.alarm_add, color: Colors.white),
-                      label: const Text('إضافة إلى جدول التنبيهات', style: TextStyle(color: Colors.white, fontWeight: FontWeight.bold)),
-                      onPressed: () {
-                        if (radio.currentStation != null) {
-                          radio.addReminder(
-                            title: titleCtrl.text,
-                            station: radio.currentStation!,
-                            hour: selectedTime.hour,
-                            minute: selectedTime.minute,
-                            days: selectedDays,
-                          );
-                          Navigator.pop(ctx);
-                          ScaffoldMessenger.of(context).showSnackBar(
-                            const SnackBar(
-                              content: Text('تمت إضافة البرنامج لجدول التنبيهات بنجاح! 📅'),
-                              backgroundColor: AppColors.success,
-                            ),
-                          );
-                        }
+                // 3 Frequency Sliders (Bass, Mid, Treble)
+                Row(
+                  mainAxisAlignment: MainAxisAlignment.spaceEvenly,
+                  children: [
+                    _buildFrequencySlider(
+                      label: 'Bass\n(منخفض)',
+                      value: radio.bassGain,
+                      color: AppColors.accentPink,
+                      onChanged: (val) {
+                        radio.setEqualizerBands(bass: val);
+                        setSheetState(() {});
                       },
                     ),
-                  ),
-
-                  // Existing Reminders List Preview
-                  if (radio.reminders.isNotEmpty) ...[
-                    const SizedBox(height: 20),
-                    const Divider(color: AppColors.cardBorder),
-                    const Text('التنبيهات المجدولة حالياً:', style: TextStyle(color: AppColors.textPrimary, fontWeight: FontWeight.bold, fontSize: 13)),
-                    const SizedBox(height: 8),
-                    for (var r in radio.reminders)
-                      ListTile(
-                        contentPadding: EdgeInsets.zero,
-                        leading: const Icon(Icons.notifications_active, color: AppColors.accent, size: 20),
-                        title: Text('${r.title} • ${r.formattedTime}', style: const TextStyle(color: AppColors.textPrimary, fontSize: 13)),
-                        subtitle: Text('${r.stationName} (${r.daysLabel})', style: const TextStyle(color: AppColors.textSecondary, fontSize: 11)),
-                        trailing: IconButton(
-                          icon: const Icon(Icons.delete_outline, color: AppColors.error, size: 18),
-                          onPressed: () => radio.deleteReminder(r.id),
-                        ),
-                      ),
+                    _buildFrequencySlider(
+                      label: 'Vocal\n(متوسط)',
+                      value: radio.midGain,
+                      color: AppColors.accent,
+                      onChanged: (val) {
+                        radio.setEqualizerBands(mid: val);
+                        setSheetState(() {});
+                      },
+                    ),
+                    _buildFrequencySlider(
+                      label: 'Treble\n(مرتفع)',
+                      value: radio.trebleGain,
+                      color: AppColors.primary,
+                      onChanged: (val) {
+                        radio.setEqualizerBands(treble: val);
+                        setSheetState(() {});
+                      },
+                    ),
                   ],
-                ],
-              ),
+                ),
+
+                const SizedBox(height: 18),
+
+                // Bass Boost Slider
+                Row(
+                  children: [
+                    const Icon(Icons.speaker_group, color: AppColors.accentPink, size: 20),
+                    const SizedBox(width: 10),
+                    const Text('مضخم الترددات (Bass Boost):', style: TextStyle(color: AppColors.textPrimary, fontSize: 13)),
+                    const Spacer(),
+                    Text('${(radio.bassBoost * 100).toInt()}%', style: const TextStyle(color: AppColors.accentPink, fontWeight: FontWeight.bold)),
+                  ],
+                ),
+                Slider(
+                  value: radio.bassBoost,
+                  activeColor: AppColors.accentPink,
+                  inactiveColor: AppColors.surfaceLight,
+                  onChanged: (val) {
+                    radio.setBassBoost(val);
+                    setSheetState(() {});
+                  },
+                ),
+              ],
             ),
           );
         },
@@ -294,6 +276,41 @@ class _LiveSpectrumVisualizerState extends State<_LiveSpectrumVisualizer> with S
     );
   }
 
+  static Widget _buildFrequencySlider({
+    required String label,
+    required double value,
+    required Color color,
+    required ValueChanged<double> onChanged,
+  }) {
+    return Column(
+      children: [
+        Text(
+          '${value > 0 ? "+" : ""}${value.toInt()} dB',
+          style: TextStyle(color: color, fontSize: 11, fontWeight: FontWeight.bold),
+        ),
+        SizedBox(
+          height: 100,
+          child: RotatedBox(
+            quarterTurns: 3,
+            child: Slider(
+              value: value.clamp(-10.0, 10.0),
+              min: -10.0,
+              max: 10.0,
+              activeColor: color,
+              inactiveColor: AppColors.surfaceLight,
+              onChanged: onChanged,
+            ),
+          ),
+        ),
+        const SizedBox(height: 4),
+        Text(
+          label,
+          textAlign: TextAlign.center,
+          style: const TextStyle(color: AppColors.textSecondary, fontSize: 11),
+        ),
+      ],
+    );
+  }
 
   void _showAmbientSoundsDialog(BuildContext context) {
     final ambient = AmbientSoundService();
@@ -425,327 +442,6 @@ class _LiveSpectrumVisualizerState extends State<_LiveSpectrumVisualizer> with S
     );
   }
 
-  const PlayerScreen({super.key});
-
-
-  void _showEqualizerSheet(BuildContext context, RadioProvider radio) {
-    showModalBottomSheet(
-      context: context,
-      backgroundColor: AppColors.surface,
-      isScrollControlled: true,
-      shape: const RoundedRectangleBorder(
-        borderRadius: BorderRadius.vertical(top: Radius.circular(24)),
-      ),
-      builder: (ctx) => StatefulBuilder(
-        builder: (ctx, setSheetState) {
-          return Padding(
-            padding: const EdgeInsets.fromLTRB(20, 16, 20, 24),
-            child: Column(
-              mainAxisSize: MainAxisSize.min,
-              crossAxisAlignment: CrossAxisAlignment.start,
-              children: [
-                Center(
-                  child: Container(
-                    width: 40,
-                    height: 4,
-                    decoration: BoxDecoration(
-                      color: AppColors.cardBorder,
-                      borderRadius: BorderRadius.circular(2),
-                    ),
-                  ),
-                ),
-                const SizedBox(height: 16),
-                Row(
-                  children: [
-                    const Icon(Icons.tune, color: AppColors.accent, size: 22),
-                    const SizedBox(width: 8),
-                    const Text(
-                      'معادل الصوت و Bass Boost 🎛️',
-                      style: TextStyle(color: AppColors.textPrimary, fontSize: 18, fontWeight: FontWeight.bold),
-                    ),
-                    const Spacer(),
-                    Container(
-                      padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 4),
-                      decoration: BoxDecoration(
-                        color: AppColors.primary.withOpacity(0.2),
-                        borderRadius: BorderRadius.circular(10),
-                      ),
-                      child: Text(
-                        radio.activePreset,
-                        style: const TextStyle(color: AppColors.accent, fontSize: 12, fontWeight: FontWeight.bold),
-                      ),
-                    ),
-                  ],
-                ),
-                const SizedBox(height: 14),
-
-                // Presets Horizontal List
-                SizedBox(
-                  height: 38,
-                  child: ListView(
-                    scrollDirection: Axis.horizontal,
-                    children: [
-                      for (final p in ['طبيعي', 'قرآن / صوت نقي', 'بيز قوي (Bass Boost)', 'صوت محيطي 3D (قاعة كبرى)', 'كلاسيك', 'بوب', 'جاز'])
-                        Padding(
-                          padding: const EdgeInsets.symmetric(horizontal: 4),
-                          child: ChoiceChip(
-                            label: Text(p, style: const TextStyle(fontSize: 11)),
-                            selected: radio.activePreset == p,
-                            selectedColor: AppColors.accent,
-                            backgroundColor: AppColors.surfaceLight,
-                            labelStyle: TextStyle(
-                              color: radio.activePreset == p ? Colors.black87 : AppColors.textPrimary,
-                              fontWeight: radio.activePreset == p ? FontWeight.bold : FontWeight.normal,
-                            ),
-                            onSelected: (_) {
-                              radio.applyEqualizerPreset(p);
-                              setSheetState(() {});
-                            },
-                          ),
-                        ),
-                    ],
-                  ),
-                ),
-
-                const SizedBox(height: 20),
-
-                // 3 Interactive Frequency Sliders (Bass, Mid, Treble)
-                Row(
-                  mainAxisAlignment: MainAxisAlignment.spaceEvenly,
-                  children: [
-                    _buildFrequencySlider(
-                      label: 'Bass\n(منخفض)',
-                      value: radio.bassGain,
-                      color: AppColors.accentPink,
-                      onChanged: (val) {
-                        radio.setEqualizerBands(bass: val);
-                        setSheetState(() {});
-                      },
-                    ),
-                    _buildFrequencySlider(
-                      label: 'Vocal\n(متوسط)',
-                      value: radio.midGain,
-                      color: AppColors.accent,
-                      onChanged: (val) {
-                        radio.setEqualizerBands(mid: val);
-                        setSheetState(() {});
-                      },
-                    ),
-                    _buildFrequencySlider(
-                      label: 'Treble\n(مرتفع)',
-                      value: radio.trebleGain,
-                      color: AppColors.primary,
-                      onChanged: (val) {
-                        radio.setEqualizerBands(treble: val);
-                        setSheetState(() {});
-                      },
-                    ),
-                  ],
-                ),
-
-                const SizedBox(height: 18),
-
-                // Bass Boost Slider
-                Row(
-                  children: [
-                    const Icon(Icons.speaker_group, color: AppColors.accentPink, size: 20),
-                    const SizedBox(width: 10),
-                    const Text('مضخم الترددات (Bass Boost):', style: TextStyle(color: AppColors.textPrimary, fontSize: 13)),
-                    const Spacer(),
-                    Text('${(radio.bassBoost * 100).toInt()}%', style: const TextStyle(color: AppColors.accentPink, fontWeight: FontWeight.bold)),
-                  ],
-                ),
-                Slider(
-                  value: radio.bassBoost,
-                  activeColor: AppColors.accentPink,
-                  inactiveColor: AppColors.surfaceLight,
-                  onChanged: (val) {
-                    radio.setBassBoost(val);
-                    setSheetState(() {});
-                  },
-                ),
-              ],
-            ),
-          );
-        },
-      ),
-    );
-  }
-
-  static Widget _buildFrequencySlider({
-    required String label,
-    required double value,
-    required Color color,
-    required ValueChanged<double> onChanged,
-  }) {
-    return Column(
-      children: [
-        Text(
-          '${value > 0 ? "+" : ""}${value.toInt()} dB',
-          style: TextStyle(color: color, fontSize: 11, fontWeight: FontWeight.bold),
-        ),
-        SizedBox(
-          height: 110,
-          child: RotatedBox(
-            quarterTurns: 3,
-            child: Slider(
-              value: value.clamp(-10.0, 10.0),
-              min: -10.0,
-              max: 10.0,
-              activeColor: color,
-              inactiveColor: AppColors.surfaceLight,
-              onChanged: onChanged,
-            ),
-          ),
-        ),
-        const SizedBox(height: 4),
-        Text(
-          label,
-          textAlign: TextAlign.center,
-          style: const TextStyle(color: AppColors.textSecondary, fontSize: 11),
-        ),
-      ],
-    );
-  }
-
-  void _showSleepTimerDialog(BuildContext context, RadioProvider radio) {
-    showModalBottomSheet(
-      context: context,
-      backgroundColor: AppColors.surface,
-      shape: const RoundedRectangleBorder(
-        borderRadius: BorderRadius.vertical(top: Radius.circular(20)),
-      ),
-      builder: (ctx) => Padding(
-        padding: const EdgeInsets.all(20),
-        child: Column(
-          mainAxisSize: MainAxisSize.min,
-          crossAxisAlignment: CrossAxisAlignment.start,
-          children: [
-            const Text(
-              'مؤقت النوم ⏳',
-              style: TextStyle(color: AppColors.textPrimary, fontSize: 18, fontWeight: FontWeight.bold),
-            ),
-            const SizedBox(height: 14),
-            for (final m in [15, 30, 45, 60, 90])
-              ListTile(
-                title: Text('$m دقيقة', style: const TextStyle(color: AppColors.textPrimary)),
-                trailing: radio.sleepTimerMinutes == m ? const Icon(Icons.check, color: AppColors.accent) : null,
-                onTap: () {
-                  radio.setSleepTimer(m);
-                  Navigator.pop(ctx);
-                },
-              ),
-            if (radio.sleepTimerMinutes != null)
-              ListTile(
-                title: const Text('إلغاء المؤقت', style: TextStyle(color: AppColors.error)),
-                onTap: () {
-                  radio.setSleepTimer(0);
-                  Navigator.pop(ctx);
-                },
-              ),
-          ],
-        ),
-      ),
-    );
-  }
-
-  void _showAlarmDialog(BuildContext context, RadioProvider radio) {
-    TimeOfDay selectedTime = radio.alarmTime ?? const TimeOfDay(hour: 7, minute: 0);
-
-    showModalBottomSheet(
-      context: context,
-      backgroundColor: AppColors.surface,
-      shape: const RoundedRectangleBorder(
-        borderRadius: BorderRadius.vertical(top: Radius.circular(20)),
-      ),
-      builder: (ctx) => StatefulBuilder(
-        builder: (ctx, setModalState) {
-          return Padding(
-            padding: const EdgeInsets.all(20),
-            child: Column(
-              mainAxisSize: MainAxisSize.min,
-              crossAxisAlignment: CrossAxisAlignment.start,
-              children: [
-                Row(
-                  children: [
-                    const Text(
-                      'منبه الراديو ⏰',
-                      style: TextStyle(color: AppColors.textPrimary, fontSize: 18, fontWeight: FontWeight.bold),
-                    ),
-                    const Spacer(),
-                    if (radio.alarmEnabled)
-                      Switch(
-                        value: radio.alarmEnabled,
-                        activeColor: AppColors.accent,
-                        onChanged: (val) {
-                          if (!val) {
-                            radio.cancelAlarm();
-                            setModalState(() {});
-                          }
-                        },
-                      ),
-                  ],
-                ),
-                const SizedBox(height: 8),
-                Text(
-                  'استيقظ يومياً على إذاعة: ${radio.currentStation?.name ?? "المحطة الحالية"}',
-                  style: const TextStyle(color: AppColors.textSecondary, fontSize: 13),
-                ),
-                const SizedBox(height: 16),
-                Center(
-                  child: ElevatedButton.icon(
-                    style: ElevatedButton.styleFrom(
-                      backgroundColor: AppColors.surfaceLight,
-                      padding: const EdgeInsets.symmetric(horizontal: 24, vertical: 12),
-                    ),
-                    icon: const Icon(Icons.access_time, color: AppColors.accent),
-                    label: Text(
-                      selectedTime.format(context),
-                      style: const TextStyle(color: AppColors.textPrimary, fontSize: 22, fontWeight: FontWeight.bold),
-                    ),
-                    onPressed: () async {
-                      final picked = await showTimePicker(
-                        context: context,
-                        initialTime: selectedTime,
-                      );
-                      if (picked != null) {
-                        setModalState(() => selectedTime = picked);
-                      }
-                    },
-                  ),
-                ),
-                const SizedBox(height: 20),
-                SizedBox(
-                  width: double.infinity,
-                  child: ElevatedButton(
-                    style: ElevatedButton.styleFrom(
-                      backgroundColor: AppColors.primary,
-                      padding: const EdgeInsets.symmetric(vertical: 14),
-                      shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
-                    ),
-                    onPressed: () {
-                      if (radio.currentStation != null) {
-                        radio.setAlarm(time: selectedTime, station: radio.currentStation!);
-                        Navigator.pop(ctx);
-                        ScaffoldMessenger.of(context).showSnackBar(
-                          SnackBar(
-                            content: Text('تم ضبط منبه الراديو على الساعة ${selectedTime.format(context)} ⏰'),
-                            backgroundColor: AppColors.success,
-                          ),
-                        );
-                      }
-                    },
-                    child: const Text('حفظ وتفعيل المنبه', style: TextStyle(color: Colors.white, fontWeight: FontWeight.bold)),
-                  ),
-                ),
-              ],
-            ),
-          );
-        },
-      ),
-    );
-  }
-
   void _shareStation(RadioStation station) {
     Share.share(
       'استمع معي إلى إذاعة "${station.name}" (${station.country}) مباشرة عبر تطبيق World Radio! 🌍📻\nرابط البث: ${station.url}',
@@ -780,21 +476,6 @@ class _LiveSpectrumVisualizerState extends State<_LiveSpectrumVisualizer> with S
           ),
           centerTitle: true,
           actions: [
-            // Floating Picture-in-Picture (PiP) 🎈
-            IconButton(
-              tooltip: 'مشغل عائم على الشاشة (PiP)',
-              icon: const Icon(Icons.picture_in_picture_alt, color: AppColors.accent),
-              onPressed: () => radio.enterPictureInPicture(),
-            ),
-            // Live Subtitles (CC) 🔤
-            IconButton(
-              tooltip: 'الترجمة النصية والمكتوبة للبث (CC)',
-              icon: Icon(
-                radio.subtitlesEnabled ? Icons.closed_caption : Icons.closed_caption_disabled,
-                color: radio.subtitlesEnabled ? AppColors.accent : Colors.white60,
-              ),
-              onPressed: () => radio.toggleSubtitles(),
-            ),
             // One-Handed Reachability Toggle 📱
             IconButton(
               tooltip: 'وضع اليد الواحدة المريح',
@@ -805,10 +486,16 @@ class _LiveSpectrumVisualizerState extends State<_LiveSpectrumVisualizer> with S
               ),
               onPressed: () => radio.toggleOneHandedMode(),
             ),
+            // Floating Picture-in-Picture (PiP) 🎈
+            IconButton(
+              tooltip: 'مشغل عائم على الشاشة (PiP)',
+              icon: const Icon(Icons.picture_in_picture_alt, color: AppColors.accent, size: 20),
+              onPressed: () => radio.enterPictureInPicture(),
+            ),
             // Ultra Battery Saver 🔋
             IconButton(
               tooltip: 'وضع توفير البطارية الأقصى',
-              icon: const Icon(Icons.battery_saver, color: Colors.greenAccent),
+              icon: const Icon(Icons.battery_saver, color: Colors.greenAccent, size: 20),
               onPressed: () {
                 Navigator.push(context, MaterialPageRoute(builder: (_) => const BatterySaverScreen()));
               },
@@ -820,32 +507,23 @@ class _LiveSpectrumVisualizerState extends State<_LiveSpectrumVisualizer> with S
                 icon: const Icon(Icons.history_toggle_off, color: AppColors.accent),
                 onPressed: () => radio.quickRecallStation(),
               ),
-            // Scheduled Reminder Button 📅
-            IconButton(
-              tooltip: 'تذكير ببرنامج إذاعي مجدول',
-              icon: const Icon(Icons.calendar_month_outlined, color: AppColors.accent),
-              onPressed: () => _showRemindersDialog(context, radio),
-            ),
             // Equalizer Button 🎛️
             IconButton(
               tooltip: 'معادل الصوت و Bass Boost',
-              icon: const Icon(Icons.tune, color: AppColors.accent),
+              icon: const Icon(Icons.tune, color: AppColors.accent, size: 20),
               onPressed: () => _showEqualizerSheet(context, radio),
             ),
             // Car Mode Button 🚗
             IconButton(
               tooltip: 'وضع القيادة في السيارة',
-              icon: const Icon(Icons.directions_car, color: AppColors.accent),
+              icon: const Icon(Icons.directions_car, color: AppColors.accent, size: 20),
               onPressed: () {
-                Navigator.push(
-                  context,
-                  MaterialPageRoute(builder: (_) => const CarModeScreen()),
-                );
+                Navigator.push(context, MaterialPageRoute(builder: (_) => const CarModeScreen()));
               },
             ),
             // Share Button
             IconButton(
-              icon: const Icon(Icons.share_outlined, color: AppColors.textPrimary),
+              icon: const Icon(Icons.share_outlined, color: AppColors.textPrimary, size: 20),
               onPressed: () => _shareStation(station),
             ),
             // Favorite Button
@@ -853,6 +531,7 @@ class _LiveSpectrumVisualizerState extends State<_LiveSpectrumVisualizer> with S
               icon: Icon(
                 station.isFavorite ? Icons.favorite : Icons.favorite_border,
                 color: station.isFavorite ? AppColors.accentPink : AppColors.textSecondary,
+                size: 22,
               ),
               onPressed: () => radio.toggleFavorite(station),
             ),
@@ -864,7 +543,7 @@ class _LiveSpectrumVisualizerState extends State<_LiveSpectrumVisualizer> with S
             padding: EdgeInsets.only(
               left: 24,
               right: 24,
-              top: radio.oneHandedMode ? 140 : 0,
+              top: radio.oneHandedMode ? 120 : 0,
             ),
             child: Column(
               mainAxisAlignment: MainAxisAlignment.spaceEvenly,
@@ -887,7 +566,7 @@ class _LiveSpectrumVisualizerState extends State<_LiveSpectrumVisualizer> with S
                           onTap: () => _searchCurrentTrack(context, radio, radio.liveMetadataTitle!),
                           child: const Icon(Icons.search, color: AppColors.accentPink, size: 16),
                         ),
-                        const SizedBox(width: 8),
+                        const SizedBox(width: 6),
                         Flexible(
                           child: Text(
                             radio.liveMetadataTitle!,
@@ -927,8 +606,8 @@ class _LiveSpectrumVisualizerState extends State<_LiveSpectrumVisualizer> with S
                 // Station Vinyl Artwork
                 Center(
                   child: Container(
-                    width: 220,
-                    height: 220,
+                    width: 190,
+                    height: 190,
                     decoration: BoxDecoration(
                       shape: BoxShape.circle,
                       color: AppColors.surface,
@@ -946,21 +625,21 @@ class _LiveSpectrumVisualizerState extends State<_LiveSpectrumVisualizer> with S
                     ),
                     child: ClipOval(
                       child: Padding(
-                        padding: const EdgeInsets.all(26),
+                        padding: const EdgeInsets.all(24),
                         child: station.favicon.isNotEmpty
                             ? CachedNetworkImage(
                                 imageUrl: station.favicon,
                                 fit: BoxFit.contain,
-                                errorWidget: (_, __, ___) => const Icon(Icons.radio, size: 80, color: AppColors.accent),
+                                errorWidget: (_, __, ___) => const Icon(Icons.radio, size: 70, color: AppColors.accent),
                               )
-                            : const Icon(Icons.radio, size: 80, color: AppColors.accent),
+                            : const Icon(Icons.radio, size: 70, color: AppColors.accent),
                       ),
                     ),
                   ),
                 ),
 
-                // Live Audio Spectrum Visualizer 📊
-                _LiveSpectrumVisualizer(isPlaying: radio.isPlaying),
+                // Live Audio Spectrum Visualizer (Animated) 📊
+                LiveSpectrumVisualizer(isPlaying: radio.isPlaying),
 
                 // Station Info
                 Column(
@@ -972,13 +651,13 @@ class _LiveSpectrumVisualizerState extends State<_LiveSpectrumVisualizer> with S
                       overflow: TextOverflow.ellipsis,
                       style: const TextStyle(
                         color: AppColors.textPrimary,
-                        fontSize: 22,
+                        fontSize: 20,
                         fontWeight: FontWeight.bold,
                       ),
                     ),
                     const SizedBox(height: 6),
                     Text(
-                      '${station.country}  ${station.countryCode.isNotEmpty ? "• ${station.countryCode}" : ""}',
+                      '${station.country}  ${station.countryCode.isNotEmpty ? "• " + station.countryCode : ""}',
                       style: const TextStyle(color: AppColors.textSecondary, fontSize: 13),
                     ),
                   ],
@@ -1004,76 +683,44 @@ class _LiveSpectrumVisualizerState extends State<_LiveSpectrumVisualizer> with S
                     ],
                   ),
                 ),
-                const SizedBox(height: 8),
 
-                // Sound Modes Chips
-                Row(
-                  mainAxisAlignment: MainAxisAlignment.center,
-                  children: [
-                    for (final mode in ['طبيعي', 'صوت نقي (قرآن/كلام)', 'موسيقى غنية'])
-                      Padding(
-                        padding: const EdgeInsets.symmetric(horizontal: 3),
-                        child: ChoiceChip(
-                          label: Text(mode, style: const TextStyle(fontSize: 10)),
-                          selected: radio.soundMode == mode,
-                          selectedColor: AppColors.accent.withOpacity(0.25),
-                          backgroundColor: AppColors.surface,
-                          labelStyle: TextStyle(
-                            color: radio.soundMode == mode ? AppColors.accent : AppColors.textSecondary,
-                            fontWeight: radio.soundMode == mode ? FontWeight.bold : FontWeight.normal,
-                          ),
-                          onSelected: (_) => radio.setSoundMode(mode),
-                        ),
-                      ),
-                  ],
-                ),
-
-                // Controls Row: Timer, Play/Pause, Stop, Record 🔴, Alarm ⏰
+                // Playback Controls Row
                 Column(
                   children: [
                     Row(
                       mainAxisAlignment: MainAxisAlignment.spaceEvenly,
                       children: [
-                        // Rewind 30s Button ⏪
+                        // Live Subtitles (CC) Toggle 🔤
+                        IconButton(
+                          tooltip: 'الترجمة النصية والمكتوبة للبث (CC)',
+                          icon: Icon(
+                            radio.subtitlesEnabled ? Icons.closed_caption : Icons.closed_caption_disabled,
+                            color: radio.subtitlesEnabled ? AppColors.accent : AppColors.textSecondary,
+                            size: 26,
+                          ),
+                          onPressed: () => radio.toggleSubtitles(),
+                        ),
+
+                        // Rewind 30s ⏪
                         IconButton(
                           tooltip: 'إرجاع 30 ثانية',
                           icon: const Icon(Icons.replay_30, color: AppColors.textSecondary, size: 26),
                           onPressed: () => radio.rewind30Seconds(),
                         ),
+
                         // Ambient Sounds Button 🌧️
                         IconButton(
                           tooltip: 'أصوات الطبيعة المرافقة',
                           icon: const Icon(Icons.water_drop_outlined, color: AppColors.accent, size: 26),
                           onPressed: () => _showAmbientSoundsDialog(context),
                         ),
-                        // Sleep Timer
-                        IconButton(
-                          tooltip: 'مؤقت النوم',
-                          icon: Icon(
-                            Icons.timer_outlined,
-                            color: radio.sleepTimerMinutes != null ? AppColors.accent : AppColors.textSecondary,
-                            size: 26,
-                          ),
-                          onPressed: () => _showSleepTimerDialog(context, radio),
-                        ),
 
-                        // Alarm Clock
-                        IconButton(
-                          tooltip: 'منبه الراديو',
-                          icon: Icon(
-                            Icons.alarm,
-                            color: radio.alarmEnabled ? AppColors.accent : AppColors.textSecondary,
-                            size: 26,
-                          ),
-                          onPressed: () => _showAlarmDialog(context, radio),
-                        ),
-
-                        // Big Play/Pause
+                        // Big Play / Pause Button
                         GestureDetector(
                           onTap: () => radio.togglePlayPause(),
                           child: Container(
-                            width: 72,
-                            height: 72,
+                            width: 68,
+                            height: 68,
                             decoration: BoxDecoration(
                               shape: BoxShape.circle,
                               gradient: const LinearGradient(
@@ -1096,12 +743,23 @@ class _LiveSpectrumVisualizerState extends State<_LiveSpectrumVisualizer> with S
                                 : Icon(
                                     radio.isPlaying ? Icons.pause : Icons.play_arrow,
                                     color: Colors.white,
-                                    size: 40,
+                                    size: 38,
                                   ),
                           ),
                         ),
 
-                        // Live Audio Recording Button 🔴
+                        // Sleep Timer ⏳
+                        IconButton(
+                          tooltip: 'مؤقت النوم',
+                          icon: Icon(
+                            Icons.timer_outlined,
+                            color: radio.sleepTimerMinutes != null ? AppColors.accent : AppColors.textSecondary,
+                            size: 26,
+                          ),
+                          onPressed: () => _showSleepTimerDialog(context, radio),
+                        ),
+
+                        // Live Recording Button 🔴
                         IconButton(
                           tooltip: radio.isRecording ? 'إيقاف التسجيل' : 'تسجيل البث المباشر',
                           icon: Container(
@@ -1113,7 +771,7 @@ class _LiveSpectrumVisualizerState extends State<_LiveSpectrumVisualizer> with S
                             child: Icon(
                               radio.isRecording ? Icons.stop_circle : Icons.fiber_manual_record,
                               color: radio.isRecording ? AppColors.error : AppColors.textSecondary,
-                              size: 28,
+                              size: 26,
                             ),
                           ),
                           onPressed: () async {
@@ -1144,7 +802,7 @@ class _LiveSpectrumVisualizerState extends State<_LiveSpectrumVisualizer> with S
                         // Stop
                         IconButton(
                           tooltip: 'إيقاف كامل',
-                          icon: const Icon(Icons.stop, color: AppColors.textSecondary, size: 28),
+                          icon: const Icon(Icons.stop, color: AppColors.textSecondary, size: 26),
                           onPressed: () => radio.stop(),
                         ),
                       ],
@@ -1152,29 +810,30 @@ class _LiveSpectrumVisualizerState extends State<_LiveSpectrumVisualizer> with S
 
                     // Recording timer indicator
                     if (radio.isRecording) ...[
-                      const SizedBox(height: 8),
+                      const SizedBox(height: 6),
                       Row(
                         mainAxisAlignment: MainAxisAlignment.center,
                         children: [
-                          const Icon(Icons.fiber_manual_record, color: AppColors.error, size: 14),
+                          const Icon(Icons.fiber_manual_record, color: AppColors.error, size: 12),
                           const SizedBox(width: 6),
                           Text(
                             'جاري التسجيل: ${radio.recordingDuration.inMinutes.remainder(60).toString().padLeft(2, '0')}:${radio.recordingDuration.inSeconds.remainder(60).toString().padLeft(2, '0')}',
-                            style: const TextStyle(color: AppColors.error, fontSize: 13, fontWeight: FontWeight.bold),
+                            style: const TextStyle(color: AppColors.error, fontSize: 12, fontWeight: FontWeight.bold),
                           ),
                         ],
                       ),
                     ],
 
-                    const SizedBox(height: 20),
+                    const SizedBox(height: 16),
 
-                    // Volume Slider
+                    // Volume Slider (with boost up to 150%)
                     Row(
                       children: [
                         const Icon(Icons.volume_down, color: AppColors.textSecondary, size: 20),
                         Expanded(
                           child: Slider(
-                            value: radio.volume,
+                            value: radio.volume.clamp(0.0, 1.5),
+                            max: 1.5,
                             activeColor: AppColors.accent,
                             inactiveColor: AppColors.surfaceLight,
                             onChanged: (val) => radio.setVolume(val),
