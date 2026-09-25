@@ -1,15 +1,14 @@
 import 'package:flutter/material.dart';
 
 class AppColors {
-  static const Color background = Color(0xFF0F141C);
-  static const Color surface = Color(0xFF182232);
-  static const Color surfaceLight = Color(0xFF243248);
-  static const Color primary = Color(0xFF6C5CE7);
-  static const Color accent = Color(0xFF00CEC9);
-  static const Color accentPink = Color(0xFFFD79A8);
-  static const Color textPrimary = Color(0xFFF8F9FA);
-  static const Color textSecondary = Color(0xFF94A3B8);
-  static const Color cardBorder = Color(0xFF2E3D52);
-  static const Color success = Color(0xFF00B894);
-  static const Color error = Color(0xFFFF7675);
+  static const Color bgDark = Color(0xFF0F1419);
+  static const Color bgDarker = Color(0xFF0A0E13);
+  static const Color bgCard = Color(0xFF1A1F2E);
+  static const Color cardBorder = Color(0xFF2A3142);
+  static const Color accent = Color(0xFF00E5FF);
+  static const Color accentPink = Color(0xFFFF2E93);
+  static const Color textPrimary = Colors.white;
+  static const Color textSecondary = Color(0xFF9E9E9E);
+  static const Color error = Color(0xFFFF5252);
+  static const Color gold = Color(0xFFFFD700);
 }

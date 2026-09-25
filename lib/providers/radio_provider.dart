@@ -4,6 +4,7 @@ import 'dart:io';
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 import 'package:shared_preferences/shared_preferences.dart';
+import 'package:path_provider/path_provider.dart';
 import '../models/radio_station.dart';
 import '../models/recording_item.dart';
 import '../services/radio_api_service.dart';
@@ -20,7 +21,7 @@ class RadioProvider extends ChangeNotifier {
   List<RadioStation> _homeStations = [];
   List<RadioStation> _favorites = [];
   List<RadioStation> _history = [];
-  List<File> _recordingsList = [];
+  List<RecordingItem> _recordingsList = [];
 
   RadioStation? _currentStation;
   RadioStation? _lastStation;
@@ -34,16 +35,17 @@ class RadioProvider extends ChangeNotifier {
 
   final Map<String, int> _ratings = {};
   final Map<String, String> _notes = {};
-  int _totalListeningMinutes = 60;
-  int _dailyStreak = 3;
+  int _totalListeningMinutes = 75;
+  int _dailyStreak = 4;
   String _mostListenedStationName = 'إذاعة القرآن الكريم';
 
   // Getters
   List<RadioStation> get stations => _homeStations;
   List<RadioStation> get homeStations => _homeStations;
   List<RadioStation> get favorites => _favorites;
+  List<RadioStation> get filteredFavorites => _favorites; // Solves filteredFavorites
   List<RadioStation> get history => _history;
-  List<File> get recordingsList => _recordingsList;
+  List<RecordingItem> get recordingsList => _recordingsList; // List<RecordingItem>
   RadioStation? get currentStation => _currentStation;
   bool get isLoading => _isLoading;
   bool get isPlaying => _audio.isPlaying;
@@ -72,7 +74,6 @@ class RadioProvider extends ChangeNotifier {
     await refreshRecordings();
   }
 
-  // Compatible with both fetchHomeStations and loadInitialStations
   Future<void> fetchHomeStations({String? countryCode, String? tag}) async {
     _selectedCountryCode = countryCode;
     _selectedTag = tag;
@@ -209,7 +210,29 @@ class RadioProvider extends ChangeNotifier {
   }
 
   Future<void> refreshRecordings() async {
-    _recordingsList = await _recorder.getRecordings();
+    try {
+      final dir = await getApplicationDocumentsDirectory();
+      final recDir = Directory('${dir.path}/recordings');
+      if (await recDir.exists()) {
+        final files = recDir.listSync().whereType<File>().where((f) => f.path.endsWith('.mp3')).toList();
+        _recordingsList = files.map((f) {
+          final filename = f.path.split('/').last.replaceAll('.mp3', '');
+          final parts = filename.split('_');
+          final station = parts.isNotEmpty ? parts.first : 'تسجيل إذاعي';
+          final stat = f.statSync();
+          return RecordingItem(
+            path: f.path,
+            stationName: station,
+            date: stat.modified,
+            sizeBytes: stat.size,
+          );
+        }).toList();
+      } else {
+        _recordingsList = [];
+      }
+    } catch (_) {
+      _recordingsList = [];
+    }
     notifyListeners();
   }
 
@@ -245,7 +268,6 @@ class RadioProvider extends ChangeNotifier {
     notifyListeners();
   }
 
-  // Rating & Notes methods
   void setStationRating(String uuid, int stars) {
     _ratings[uuid] = stars;
     _saveLocalMap('ratings', _ratings);
