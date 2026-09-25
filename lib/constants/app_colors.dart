@@ -11,4 +11,5 @@ class AppColors {
   static const Color textSecondary = Color(0xFF9E9E9E);
   static const Color error = Color(0xFFFF5252);
   static const Color gold = Color(0xFFFFD700);
+  static const Color success = Color(0xFF00E676); // Fixing AppColors.success
 }
