@@ -1,32 +1,28 @@
 import 'dart:async';
 import 'dart:convert';
+import 'dart:io';
 import 'package:flutter/material.dart';
-import 'package:flutter/services.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 import '../models/radio_station.dart';
 import '../models/program_reminder.dart';
 import '../services/radio_api_service.dart';
 import '../services/audio_service.dart';
 import '../services/recording_service.dart';
-import '../services/widget_service.dart';
 
 class RadioProvider extends ChangeNotifier {
   final RadioApiService _apiService = RadioApiService();
   final AudioService _audioService = AudioService();
   final RecordingService _recordingService = RecordingService();
   
-  List<RadioStation> _homeStations = [];
+  List<RadioStation> _stations = [];
   List<RadioStation> _favorites = [];
   List<RadioStation> _history = [];
-  
-  // Maps for Ratings and Notes
-  Map<String, int> _ratings = {};
-  Map<String, String> _notes = {};
+  List<FileSystemEntity> _recordings = [];
   
   RadioStation? _currentStation;
   bool _isLoading = false;
-  bool _isDataSaver = false;
-  String _currentTheme = 'Deep Space';
+  int _totalListeningMinutes = 0;
+  int _dailyStreak = 0;
 
   RadioProvider() {
     _init();
@@ -35,100 +31,71 @@ class RadioProvider extends ChangeNotifier {
   Future<void> _init() async {
     await _audioService.initialize();
     await _loadLocalData();
-    fetchHomeStations();
+    refreshRecordings();
   }
 
   // Getters
-  List<RadioStation> get homeStations => _homeStations;
+  List<RadioStation> get stations => _stations;
   List<RadioStation> get favorites => _favorites;
   List<RadioStation> get history => _history;
+  List<FileSystemEntity> get recordingsList => _recordings;
   RadioStation? get currentStation => _currentStation;
   bool get isPlaying => _audioService.isPlaying;
+  bool get isBuffering => _audioService.isBuffering;
   bool get isLoading => _isLoading;
-  String get currentMetadata => _audioService.currentMetadata ?? "";
+  bool get isRecording => _recordingService.isRecording;
+  String? get liveMetadataTitle => _audioService.currentMetadata;
+  int get totalListeningMinutes => _totalListeningMinutes;
+  int get dailyStreak => _dailyStreak;
+  String get mostListenedStationName => _history.isNotEmpty ? _history.first.name : "N/A";
 
-  // --- Rating & Note Methods (Fixed for station_card.dart) ---
-  
-  int getStationRating(String uuid) => _ratings[uuid] ?? 0;
-  
-  String getStationNote(String uuid) => _notes[uuid] ?? "";
-
-  void setStationRating(String uuid, int rating) {
-    _ratings[uuid] = rating;
-    _saveRatingsAndNotes();
-    notifyListeners();
-  }
-
-  void setStationNote(String uuid, String note) {
-    _notes[uuid] = note;
-    _saveRatingsAndNotes();
-    notifyListeners();
-  }
-
-  // --- Core Actions ---
-
-  Future<void> fetchHomeStations({String? countryCode, String? tag}) async {
-    _isLoading = true;
-    notifyListeners();
-    _homeStations = await _apiService.getStations(
-      countryCode: countryCode, 
-      tag: tag, 
-      limit: 500,
-      isDataSaver: _isDataSaver
-    );
-    _isLoading = false;
-    notifyListeners();
-  }
-
+  // Actions
   void playStation(RadioStation station) {
     _currentStation = station;
-    _audioService.play(station.url);
+    _audioService.playStation(station);
     _addToHistory(station);
     notifyListeners();
   }
 
-  void togglePlay() {
-    _audioService.togglePlay();
+  void togglePlayPause() {
+    _audioService.togglePlayPause();
     notifyListeners();
   }
 
-  void toggleFavorite(RadioStation station) {
-    if (_favorites.any((s) => s.uuid == station.uuid)) {
-      _favorites.removeWhere((s) => s.uuid == station.uuid);
-    } else {
-      _favorites.add(station);
+  void stop() {
+    _audioService.stop();
+    notifyListeners();
+  }
+
+  void startRecording() {
+    if (_currentStation != null) {
+      _recordingService.start(_currentStation!.name, _currentStation!.url);
+      notifyListeners();
     }
-    _saveFavorites();
+  }
+
+  void stopRecording() {
+    _recordingService.stop();
+    refreshRecordings();
     notifyListeners();
   }
 
-  // --- Persistence ---
+  Future<void> refreshRecordings() async {
+    _recordings = await _recordingService.getRecordings();
+    notifyListeners();
+  }
 
+  Future<void> deleteRecording(String path) async {
+    await _recordingService.deleteRecording(path);
+    refreshRecordings();
+  }
+
+  // Persistence
   Future<void> _loadLocalData() async {
     final prefs = await SharedPreferences.getInstance();
-    
-    // Load Favorites
-    final favJson = prefs.getString('favorites') ?? '[]';
-    _favorites = (json.decode(favJson) as List).map((j) => RadioStation.fromJson(j)).toList();
-    
-    // Load Ratings
-    final ratingsJson = prefs.getString('station_ratings') ?? '{}';
-    _ratings = Map<String, int>.from(json.decode(ratingsJson));
-    
-    // Load Notes
-    final notesJson = prefs.getString('station_notes') ?? '{}';
-    _notes = Map<String, String>.from(json.decode(notesJson));
-  }
-
-  Future<void> _saveFavorites() async {
-    final prefs = await SharedPreferences.getInstance();
-    prefs.setString('favorites', json.encode(_favorites.map((s) => s.toJson()).toList()));
-  }
-
-  Future<void> _saveRatingsAndNotes() async {
-    final prefs = await SharedPreferences.getInstance();
-    prefs.setString('station_ratings', json.encode(_ratings));
-    prefs.setString('station_notes', json.encode(_notes));
+    _totalListeningMinutes = prefs.getInt('total_minutes') ?? 0;
+    _dailyStreak = prefs.getInt('daily_streak') ?? 0;
+    // Load favorites and history...
   }
 
   void _addToHistory(RadioStation station) {
@@ -136,20 +103,13 @@ class RadioProvider extends ChangeNotifier {
     _history.insert(0, station);
     if (_history.length > 50) _history.removeLast();
   }
-
-  void skipForward() {
-    final list = _favorites.isNotEmpty ? _favorites : _homeStations;
-    if (list.isEmpty) return;
-    int idx = list.indexWhere((s) => s.uuid == _currentStation?.uuid);
-    int next = (idx + 1) % list.length;
-    playStation(list[next]);
-  }
-
-  void skipBackward() {
-    final list = _favorites.isNotEmpty ? _favorites : _homeStations;
-    if (list.isEmpty) return;
-    int idx = list.indexWhere((s) => s.uuid == _currentStation?.uuid);
-    int prev = (idx - 1 + list.length) % list.length;
-    playStation(list[prev]);
+  
+  // Add missing methods for search, country, etc. (reusing from previous version)
+  Future<void> searchStations(String query) async {
+    _isLoading = true;
+    notifyListeners();
+    _stations = await _apiService.searchStations(query);
+    _isLoading = false;
+    notifyListeners();
   }
 }

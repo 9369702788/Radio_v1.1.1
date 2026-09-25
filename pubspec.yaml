@@ -1,7 +1,7 @@
 name: world_radio
-description: "World Radio - The ultimate global radio experience with 3D Globe, Recording, and Smart Controls."
+description: "World Radio - The ultimate global radio experience."
 publish_to: 'none'
-version: 1.0.0+1
+version: 1.1.0+1
 environment:
   sdk: '>=3.0.0 <4.0.0'
 dependencies:
@@ -17,9 +17,13 @@ dependencies:
   share_plus: ^7.2.1
   intl: ^0.19.0
   flutter_svg: ^2.0.9
+  connectivity_plus: ^5.0.2
 dev_dependencies:
   flutter_test:
     sdk: flutter
   flutter_lints: ^3.0.0
 flutter:
   uses-material-design: true
+  assets:
+    - assets/images/
+    - assets/icons/

@@ -1,95 +1,65 @@
-import 'dart:async';
 import 'package:just_audio/just_audio.dart';
 import 'package:audio_session/audio_session.dart';
+import '../models/radio_station.dart';
+import 'dart:async';
 
 class AudioService {
-  static final AudioService _instance = AudioService._internal();
-  factory AudioService() => _instance;
-  AudioService._internal();
+  late AudioPlayer _audioPlayer;
+  bool _isInitialized = false;
+  String? _currentMetadata;
 
-  final AudioPlayer _player = AudioPlayer();
-  AudioPlayer get player => _player;
-  bool _initialized = false;
-  String? _lastUrl;
-  int _retryCount = 0;
-  Timer? _reconnectTimer;
-
-  Future<void> initialize() async {
-    if (_initialized) return;
-    try {
-      final session = await AudioSession.instance;
-      await session.configure(const AudioSessionConfiguration.music());
-
-      // Smart Feature 1: Pause automatically when headphones / Bluetooth disconnect (becoming noisy)
-      session.becomingNoisyEventStream.listen((_) {
-        pause();
-      });
-
-      // Smart Feature 2: Listen for stream errors and auto-reconnect
-      _player.playbackEventStream.listen(
-        (event) {},
-        onError: (Object e, StackTrace st) {
-          _handleStreamError();
-        },
-      );
-
-      _initialized = true;
-    } catch (_) {}
+  AudioService() {
+    _audioPlayer = AudioPlayer();
+    _audioPlayer.icyMetadataStream.listen((meta) {
+      _currentMetadata = meta?.info?.title;
+    });
   }
 
-  Future<void> play(String url) async {
-    await initialize();
-    _lastUrl = url;
-    _retryCount = 0;
-    _reconnectTimer?.cancel();
+  Future<void> initialize() async {
+    if (_isInitialized) return;
     try {
-      await _player.stop();
-      await _player.setUrl(url);
-      await _player.play();
+      final session = await AudioSession.instance;
+      await session.configure(const AudioSessionConfiguration.speech());
+      _isInitialized = true;
     } catch (e) {
-      _handleStreamError();
+      print("Audio Init Error: $e");
+    }
+  }
+
+  Future<void> playStation(RadioStation station) async {
+    try {
+      await _audioPlayer.setUrl(station.url);
+      await _audioPlayer.play();
+    } catch (e) {
+      print("Play Error: $e");
       rethrow;
     }
   }
 
-  void _handleStreamError() {
-    if (_lastUrl == null || _retryCount >= 3) return;
-    _retryCount++;
-    final delay = Duration(seconds: _retryCount * 2);
-    _reconnectTimer?.cancel();
-    _reconnectTimer = Timer(delay, () async {
-      try {
-        if (_lastUrl != null) {
-          await _player.setUrl(_lastUrl!);
-          await _player.play();
-          _retryCount = 0;
-        }
-      } catch (_) {}
-    });
-  }
-
-  Future<void> pause() async {
-    _reconnectTimer?.cancel();
-    await _player.pause();
-  }
-
-  Future<void> resume() async {
-    await _player.play();
+  Future<void> togglePlayPause() async {
+    if (_audioPlayer.playing) {
+      await _audioPlayer.pause();
+    } else {
+      await _audioPlayer.play();
+    }
   }
 
   Future<void> stop() async {
-    _reconnectTimer?.cancel();
-    await _player.stop();
+    await _audioPlayer.stop();
   }
 
   Future<void> setVolume(double volume) async {
-    await _player.setVolume(volume.clamp(0.0, 1.5));
+    await _audioPlayer.setVolume(volume);
   }
 
-  Future<void> setSpeed(double speed) async {
-    await _player.setSpeed(speed);
-  }
+  // Getters
+  bool get isPlaying => _audioPlayer.playing;
+  bool get isBuffering => _audioPlayer.processingState == ProcessingState.buffering;
+  String? get currentMetadata => _currentMetadata;
+  Stream<IcyMetadata?> get metadataStream => _audioPlayer.icyMetadataStream;
+  Stream<PlayerState> get playerStateStream => _audioPlayer.playerStateStream;
 
-  Stream<PlayerState> get playerStateStream => _player.playerStateStream;
-  Stream<IcyMetadata?> get icyMetadataStream => _player.icyMetadataStream;
+  Future<void> dispose() async {
+    await _audioPlayer.dispose();
+  }
 }
