@@ -32,9 +32,13 @@ class RadioProvider extends ChangeNotifier {
     await _audioService.initialize();
     await _loadLocalData();
     refreshRecordings();
+    
+    _audioService.playerStateStream.listen((state) {
+      notifyListeners();
+    });
   }
 
-  // Getters
+  // --- Getters (Aligned with PlayerScreen) ---
   List<RadioStation> get stations => _stations;
   List<RadioStation> get favorites => _favorites;
   List<RadioStation> get history => _history;
@@ -44,12 +48,38 @@ class RadioProvider extends ChangeNotifier {
   bool get isBuffering => _audioService.isBuffering;
   bool get isLoading => _isLoading;
   bool get isRecording => _recordingService.isRecording;
-  String? get liveMetadataTitle => _audioService.currentMetadata;
+  
+  // The screen expects 'currentMetadata'
+  String get currentMetadata => _audioService.currentMetadata ?? "";
+  
   int get totalListeningMinutes => _totalListeningMinutes;
   int get dailyStreak => _dailyStreak;
   String get mostListenedStationName => _history.isNotEmpty ? _history.first.name : "N/A";
 
-  // Actions
+  // --- Actions (Aligned with PlayerScreen) ---
+  
+  // The screen expects 'togglePlay'
+  void togglePlay() {
+    _audioService.togglePlayPause();
+    notifyListeners();
+  }
+
+  void skipForward() {
+    final list = _favorites.isNotEmpty ? _favorites : _stations;
+    if (list.isEmpty) return;
+    int idx = list.indexWhere((s) => s.uuid == _currentStation?.uuid);
+    int next = (idx + 1) % list.length;
+    playStation(list[next]);
+  }
+
+  void skipBackward() {
+    final list = _favorites.isNotEmpty ? _favorites : _stations;
+    if (list.isEmpty) return;
+    int idx = list.indexWhere((s) => s.uuid == _currentStation?.uuid);
+    int prev = (idx - 1 + list.length) % list.length;
+    playStation(list[prev]);
+  }
+
   void playStation(RadioStation station) {
     _currentStation = station;
     _audioService.playStation(station);
@@ -57,16 +87,13 @@ class RadioProvider extends ChangeNotifier {
     notifyListeners();
   }
 
-  void togglePlayPause() {
-    _audioService.togglePlayPause();
-    notifyListeners();
-  }
-
   void stop() {
     _audioService.stop();
+    _currentStation = null;
     notifyListeners();
   }
 
+  // --- Recording & Others ---
   void startRecording() {
     if (_currentStation != null) {
       _recordingService.start(_currentStation!.name, _currentStation!.url);
@@ -90,26 +117,24 @@ class RadioProvider extends ChangeNotifier {
     refreshRecordings();
   }
 
-  // Persistence
-  Future<void> _loadLocalData() async {
-    final prefs = await SharedPreferences.getInstance();
-    _totalListeningMinutes = prefs.getInt('total_minutes') ?? 0;
-    _dailyStreak = prefs.getInt('daily_streak') ?? 0;
-    // Load favorites and history...
-  }
-
-  void _addToHistory(RadioStation station) {
-    _history.removeWhere((s) => s.uuid == station.uuid);
-    _history.insert(0, station);
-    if (_history.length > 50) _history.removeLast();
-  }
-  
-  // Add missing methods for search, country, etc. (reusing from previous version)
+  // --- Search & Data ---
   Future<void> searchStations(String query) async {
     _isLoading = true;
     notifyListeners();
     _stations = await _apiService.searchStations(query);
     _isLoading = false;
     notifyListeners();
+  }
+
+  Future<void> _loadLocalData() async {
+    final prefs = await SharedPreferences.getInstance();
+    _totalListeningMinutes = prefs.getInt('total_minutes') ?? 0;
+    _dailyStreak = prefs.getInt('daily_streak') ?? 0;
+  }
+
+  void _addToHistory(RadioStation station) {
+    _history.removeWhere((s) => s.uuid == station.uuid);
+    _history.insert(0, station);
+    if (_history.length > 50) _history.removeLast();
   }
 }
