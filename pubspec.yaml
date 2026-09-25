@@ -1,11 +1,9 @@
 name: world_radio
-description: "World Radio - Listen to thousands of live radio stations from around the world"
+description: "World Radio - The ultimate global radio experience with 3D Globe, Recording, and Smart Controls."
 publish_to: 'none'
-version: 2.0.0+1
-
+version: 1.0.0+1
 environment:
   sdk: '>=3.0.0 <4.0.0'
-
 dependencies:
   flutter:
     sdk: flutter
@@ -14,14 +12,14 @@ dependencies:
   http: ^1.1.0
   provider: ^6.1.1
   shared_preferences: ^2.2.2
-  cached_network_image: ^3.3.1
+  cached_network_image: ^3.3.0
   path_provider: ^2.1.2
-  share_plus: ^10.0.0
-
+  share_plus: ^7.2.1
+  intl: ^0.19.0
+  flutter_svg: ^2.0.9
 dev_dependencies:
   flutter_test:
     sdk: flutter
   flutter_lints: ^3.0.0
-
 flutter:
   uses-material-design: true
