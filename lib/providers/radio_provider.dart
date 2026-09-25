@@ -19,6 +19,7 @@ class RadioProvider extends ChangeNotifier {
   final AmbientSoundService _ambient = AmbientSoundService();
 
   List<RadioStation> _homeStations = [];
+  List<RadioStation> _searchResults = [];
   List<RadioStation> _favorites = [];
   List<RadioStation> _history = [];
   List<RecordingItem> _recordingsList = [];
@@ -29,23 +30,29 @@ class RadioProvider extends ChangeNotifier {
   String _activeFilterTitle = '🌍 كل المحطات';
   String? _selectedCountryCode;
   String? _selectedTag;
+  String _selectedFavoritesFolder = 'الكل';
   int _offset = 0;
   bool _hasMore = true;
   bool _dataSaver = false;
 
   final Map<String, int> _ratings = {};
   final Map<String, String> _notes = {};
-  int _totalListeningMinutes = 75;
-  int _dailyStreak = 4;
+  int _totalListeningMinutes = 90;
+  int _dailyStreak = 5;
   String _mostListenedStationName = 'إذاعة القرآن الكريم';
 
   // Getters
   List<RadioStation> get stations => _homeStations;
   List<RadioStation> get homeStations => _homeStations;
+  List<RadioStation> get searchResults => _searchResults;
   List<RadioStation> get favorites => _favorites;
-  List<RadioStation> get filteredFavorites => _favorites; // Solves filteredFavorites
+  List<RadioStation> get filteredFavorites {
+    if (_selectedFavoritesFolder == 'الكل') return _favorites;
+    return _favorites.where((s) => s.tags.any((t) => t.toLowerCase().contains(_selectedFavoritesFolder.toLowerCase()))).toList();
+  }
+  String get selectedFavoritesFolder => _selectedFavoritesFolder;
   List<RadioStation> get history => _history;
-  List<RecordingItem> get recordingsList => _recordingsList; // List<RecordingItem>
+  List<RecordingItem> get recordingsList => _recordingsList;
   RadioStation? get currentStation => _currentStation;
   bool get isLoading => _isLoading;
   bool get isPlaying => _audio.isPlaying;
@@ -72,6 +79,58 @@ class RadioProvider extends ChangeNotifier {
     await _loadLocalData();
     await loadInitialStations();
     await refreshRecordings();
+  }
+
+  void setFavoritesFolder(String folder) {
+    _selectedFavoritesFolder = folder;
+    notifyListeners();
+  }
+
+  String exportBackupJson() {
+    final data = {
+      'favorites': _favorites.map((s) => s.toJson()).toList(),
+      'history': _history.map((s) => s.toJson()).toList(),
+      'ratings': _ratings,
+      'notes': _notes,
+      'exported_at': DateTime.now().toIso8601String(),
+    };
+    return jsonEncode(data);
+  }
+
+  Future<int> importBackupJson(String jsonStr) async {
+    try {
+      final Map<String, dynamic> data = jsonDecode(jsonStr);
+      int count = 0;
+      if (data.containsKey('favorites')) {
+        final List favList = data['favorites'];
+        for (var item in favList) {
+          final station = RadioStation.fromJson(item);
+          if (!_favorites.any((f) => f.uuid == station.uuid)) {
+            station.isFavorite = true;
+            _favorites.add(station);
+            count++;
+          }
+        }
+      }
+      await _saveFavorites();
+      notifyListeners();
+      return count;
+    } catch (_) {
+      return 0;
+    }
+  }
+
+  Future<void> search(String query) async {
+    if (query.trim().isEmpty) {
+      _searchResults = [];
+      notifyListeners();
+      return;
+    }
+    _isLoading = true;
+    notifyListeners();
+    _searchResults = await _api.getStations(query: query.trim(), limit: 100);
+    _isLoading = false;
+    notifyListeners();
   }
 
   Future<void> fetchHomeStations({String? countryCode, String? tag}) async {
