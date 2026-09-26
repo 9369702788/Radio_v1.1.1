@@ -60,6 +60,7 @@ class RadioProvider extends ChangeNotifier {
   int get dailyStreak => _dailyStreak;
   String get mostListenedStationName => _mostListenedStationName;
   AudioService get audioService => _audioService;
+  List<RadioStation> get homeStations => _stations;
 
   Future<void> _initialize() async {
     await _audioService.initialize();
