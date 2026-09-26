@@ -33,10 +33,6 @@ class RadioProvider extends ChangeNotifier {
   String _mostListenedStationName = 'لا توجد';
   Map<String, double> _ratings = {};
   Map<String, String> _notes = {};
-  String? _selectedCountryCode;
-  String? _selectedTag;
-  String _currentThemeName = 'dark';
-  double _volume = 1.0;
 
   RadioProvider(this._prefs) {
     _initialize();
@@ -64,14 +60,6 @@ class RadioProvider extends ChangeNotifier {
   int get dailyStreak => _dailyStreak;
   String get mostListenedStationName => _mostListenedStationName;
   AudioService get audioService => _audioService;
-  List<RadioStation> get homeStations => _stations;
-  List<RadioStation> get history => _recentlyPlayed;
-  String? get liveMetadataTitle => _currentMetadata.isEmpty ? null : _currentMetadata;
-  String? get selectedCountryCode => _selectedCountryCode;
-  String? get selectedTag => _selectedTag;
-  String get activeFilterTitle => _selectedCountryCode ?? _selectedTag ?? 'All stations';
-  String get currentThemeName => _currentThemeName;
-  double get volume => _volume;
 
   Future<void> _initialize() async {
     await _audioService.initialize();
@@ -303,38 +291,6 @@ class RadioProvider extends ChangeNotifier {
 
   String getStationNote(String uuid) => _notes[uuid] ?? '';
 
-
-  Future<void> addCustomStation({
-    required String name,
-    required String url,
-    required String country,
-  }) async {
-    final station = RadioStation(
-      uuid: 'custom-${DateTime.now().microsecondsSinceEpoch}',
-      name: name,
-      url: url,
-      favicon: '',
-      country: country.isEmpty ? 'Custom' : country,
-      countryCode: '',
-      language: '',
-      tags: const <String>['Custom'],
-    );
-    _stations = [station, ..._stations];
-    _favorites = [station, ..._favorites];
-    await _saveFavorites();
-    notifyListeners();
-  }
-
-  Future<void> search(String query) => searchStations(query);
-  Future<void> filterByCountry(String code, String name) async { _selectedCountryCode = code; _selectedTag = null; await getStationsByCountry(code); }
-  void filterByTag(String tag, String name) { _selectedTag = tag; _selectedCountryCode = null; _stations = _stations.where((s) => s.tags.contains(tag)).toList(); notifyListeners(); }
-  void setTheme(String themeName) { _currentThemeName = themeName; notifyListeners(); }
-  void setVolume(double value) { _volume = value.clamp(0.0, 1.0).toDouble(); notifyListeners(); }
-  void clearHistory() { _recentlyPlayed.clear(); _saveRecentlyPlayed(); notifyListeners(); }
-  Future<RadioStation?> playRandomStation() async { if (_stations.isEmpty) return null; final station = _stations[DateTime.now().millisecondsSinceEpoch % _stations.length]; await playStation(station); return station; }
-  Future<void> playNextFavorite() async { if (_favorites.isEmpty) return; final i = _currentStation == null ? -1 : _favorites.indexWhere((s) => s.uuid == _currentStation!.uuid); await playStation(_favorites[(i + 1) % _favorites.length]); }
-  Future<void> playPreviousFavorite() async { if (_favorites.isEmpty) return; final i = _currentStation == null ? 0 : _favorites.indexWhere((s) => s.uuid == _currentStation!.uuid); await playStation(_favorites[(i <= 0 ? _favorites.length : i) - 1]); }
-
   // ===== BACKUP/RESTORE =====
   String exportBackupJson() {
     return jsonEncode({
@@ -399,4 +355,38 @@ class RadioProvider extends ChangeNotifier {
     await _audioService.dispose();
     super.dispose();
   }
+
+  Future<void> loadMoreHomeStations() async {
+    if (_isLoadingMore) return;
+    _isLoadingMore = true;
+    notifyListeners();
+    try {
+      await fetchHomeStations();
+    } finally {
+      _isLoadingMore = false;
+      notifyListeners();
+    }
+  }
+
+  List<RadioStation> get history => _recentlyPlayed;
+  String? get liveMetadataTitle => _currentMetadata.isEmpty ? null : _currentMetadata;
+  List<RadioStation> get homeStations => _stations;
+  String _activeFilterTitle = "All";
+  String get activeFilterTitle => _activeFilterTitle;
+  String? _selectedCountryCode;
+  String? get selectedCountryCode => _selectedCountryCode;
+  String? _selectedTag;
+  String? get selectedTag => _selectedTag;
+  String get currentThemeName => "Dark";
+  double _volume = 1.0;
+  double get volume => _volume;
+  Future<void> filterByCountry(String code, String name) async { _selectedCountryCode = code; _activeFilterTitle = name; await getStationsByCountry(code); }
+  Future<void> filterByTag(String tag, String name) async { _selectedTag = tag; _activeFilterTitle = name; notifyListeners(); }
+  void setTheme(String theme) { notifyListeners(); }
+  void setVolume(double vol) { _volume = vol; _audioService.setVolume(vol); notifyListeners(); }
+  void clearHistory() { _recentlyPlayed.clear(); _saveRecentlyPlayed(); notifyListeners(); }
+  Future<RadioStation?> playRandomStation() async { if (_stations.isEmpty) return null; final s = _stations[DateTime.now().millisecond % _stations.length]; await playStation(s); return s; }
+  void playNextFavorite() { if (_favorites.isEmpty) return; int idx = _favorites.indexWhere((s) => s.uuid == _currentStation?.uuid); playStation(_favorites[(idx + 1) % _favorites.length]); }
+  void playPreviousFavorite() { if (_favorites.isEmpty) return; int idx = _favorites.indexWhere((s) => s.uuid == _currentStation?.uuid); playStation(_favorites[(idx - 1 + _favorites.length) % _favorites.length]); }
+  void addCustomStation({required String name, required String url, String? country}) { final s = RadioStation(uuid: DateTime.now().millisecondsSinceEpoch.toString(), name: name, url: url, favicon: "", country: country ?? "Custom", countryCode: "XX", language: "", tags: ["Custom"], isFavorite: true); _favorites.add(s); _saveFavorites(); notifyListeners(); }
 }

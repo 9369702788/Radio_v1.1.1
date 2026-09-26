@@ -23,7 +23,7 @@ class WorldRadioApp extends StatelessWidget {
   Widget build(BuildContext context) {
     return MultiProvider(
       providers: [
-        ChangeNotifierProvider(create: (_) => RadioProvider()),
+        ChangeNotifierProvider(create: (_) => RadioProvider(prefs)),
       ],
       child: MaterialApp(
         title: 'World Radio',

@@ -44,6 +44,9 @@ class AudioService {
     }
   }
 
+  Future<void> pause() async => await _audioPlayer.pause();
+  Future<void> resume() async => await _audioPlayer.play();
+
   Future<void> stop() async {
     await _audioPlayer.stop();
   }

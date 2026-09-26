@@ -1,3 +1,5 @@
+import 'dart:math' as math;
+import '../services/widget_service.dart';
 import 'dart:async';
 import 'package:flutter/material.dart';
 import 'package:provider/provider.dart';
@@ -121,5 +123,4 @@ class _PlayerScreenState extends State<PlayerScreen> {
     );
   }
 }
-import 'dart:math' as math;
-import '../services/widget_service.dart';
+

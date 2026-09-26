@@ -50,7 +50,7 @@ class StationCard extends StatelessWidget {
                     for (int star = 1; star <= 5; star++)
                       IconButton(
                         icon: Icon(
-                          star <= currentRating ? Icons.star : Icons.star_border,
+                          star <= currentRating.toInt() ? Icons.star : Icons.star_border,
                           color: Colors.amber,
                           size: 32,
                         ),
