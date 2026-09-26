@@ -27,6 +27,9 @@ class RadioProvider extends ChangeNotifier {
   RadioStation? _currentStation;
   RadioStation? _lastStation;
   bool _isLoading = false;
+  bool _isLoadingMore = false;
+  bool _isSearching = false;
+  String? _errorMessage;
   String _activeFilterTitle = '🌍 كل المحطات';
   String? _selectedCountryCode;
   String? _selectedTag;
@@ -55,11 +58,15 @@ class RadioProvider extends ChangeNotifier {
   List<RecordingItem> get recordingsList => _recordingsList;
   RadioStation? get currentStation => _currentStation;
   bool get isLoading => _isLoading;
+  bool get isLoadingMore => _isLoadingMore;
+  bool get isSearching => _isSearching;
+  String? get errorMessage => _errorMessage;
   bool get isPlaying => _audio.isPlaying;
   bool get isBuffering => _audio.isBuffering;
   bool get isRecording => _recorder.isRecording;
   bool get hasMore => _hasMore;
   bool get dataSaver => _dataSaver;
+  bool get dataSaverMode => _dataSaver; // Fixes dataSaverMode
   String get activeFilterTitle => _activeFilterTitle;
   String? get selectedCountryCode => _selectedCountryCode;
   String? get selectedTag => _selectedTag;
@@ -79,6 +86,11 @@ class RadioProvider extends ChangeNotifier {
     await _loadLocalData();
     await loadInitialStations();
     await refreshRecordings();
+  }
+
+  // Fixes loadTopStations
+  Future<void> loadTopStations() async {
+    await resetFilter();
   }
 
   void setFavoritesFolder(String folder) {
@@ -123,14 +135,23 @@ class RadioProvider extends ChangeNotifier {
   Future<void> search(String query) async {
     if (query.trim().isEmpty) {
       _searchResults = [];
+      _isSearching = false;
       notifyListeners();
       return;
     }
+    _isSearching = true;
     _isLoading = true;
     notifyListeners();
-    _searchResults = await _api.getStations(query: query.trim(), limit: 100);
-    _isLoading = false;
-    notifyListeners();
+    try {
+      _searchResults = await _api.getStations(query: query.trim(), limit: 100);
+      _errorMessage = null;
+    } catch (e) {
+      _errorMessage = 'حدث خطأ في البحث';
+    } finally {
+      _isSearching = false;
+      _isLoading = false;
+      notifyListeners();
+    }
   }
 
   Future<void> fetchHomeStations({String? countryCode, String? tag}) async {
@@ -143,30 +164,41 @@ class RadioProvider extends ChangeNotifier {
     _isLoading = true;
     _offset = 0;
     _hasMore = true;
+    _errorMessage = null;
     notifyListeners();
 
-    _homeStations = await _api.getStations(
-      countryCode: _selectedCountryCode,
-      tag: _selectedTag,
-      offset: 0,
-    );
-    _isLoading = false;
-    notifyListeners();
+    try {
+      _homeStations = await _api.getStations(
+        countryCode: _selectedCountryCode,
+        tag: _selectedTag,
+        offset: 0,
+      );
+    } catch (e) {
+      _errorMessage = 'تعذر تحميل المحطات، يرجى المحاولة مرة أخرى';
+    } finally {
+      _isLoading = false;
+      notifyListeners();
+    }
   }
 
   Future<void> loadMoreHomeStations() async {
-    if (_isLoading || !_hasMore) return;
+    if (_isLoading || _isLoadingMore || !_hasMore) return;
+    _isLoadingMore = true;
+    notifyListeners();
     _offset += 500;
-    final more = await _api.getStations(
-      countryCode: _selectedCountryCode,
-      tag: _selectedTag,
-      offset: _offset,
-    );
-    if (more.isEmpty) {
-      _hasMore = false;
-    } else {
-      _homeStations.addAll(more);
-    }
+    try {
+      final more = await _api.getStations(
+        countryCode: _selectedCountryCode,
+        tag: _selectedTag,
+        offset: _offset,
+      );
+      if (more.isEmpty) {
+        _hasMore = false;
+      } else {
+        _homeStations.addAll(more);
+      }
+    } catch (_) {}
+    _isLoadingMore = false;
     notifyListeners();
   }
 
