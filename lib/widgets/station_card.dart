@@ -50,12 +50,12 @@ class StationCard extends StatelessWidget {
                     for (int star = 1; star <= 5; star++)
                       IconButton(
                         icon: Icon(
-                          star <= currentRating.toInt() ? Icons.star : Icons.star_border,
+                          star <= currentRating.toInt().toInt() ? Icons.star : Icons.star_border,
                           color: Colors.amber,
                           size: 32,
                         ),
                         onPressed: () {
-                          setDialogState(() => currentRating = star.toDouble());
+                          setDialogState(() => currentRating = star.toDouble().toDouble());
                           radio.setStationRating(station.uuid, star.toDouble());
                         },
                       ),
