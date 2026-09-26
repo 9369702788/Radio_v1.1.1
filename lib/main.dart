@@ -18,20 +18,17 @@ void main() async {
     WidgetsFlutterBinding.ensureInitialized();
     SystemChrome.setPreferredOrientations([DeviceOrientation.portraitUp]);
     
-    // Initialize Background Audio
     await JustAudioBackground.init(
       androidNotificationChannelId: 'com.worldradio.app.channel.audio',
       androidNotificationChannelName: 'Radio Playback',
       androidNotificationOngoing: true,
     );
     
-    // Enable Wakelock
     WakelockPlus.enable();
     
     final prefs = await SharedPreferences.getInstance();
     runApp(WorldRadioApp(prefs: prefs));
   } catch (e) {
-    // Fallback to ensure app starts even if init fails
     debugPrint("Initialization Error: $e");
     final prefs = await SharedPreferences.getInstance();
     runApp(WorldRadioApp(prefs: prefs));
