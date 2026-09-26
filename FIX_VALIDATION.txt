@@ -1,0 +1,8 @@
+Radio_v1.1.1_COMPLETE_FIXED_FINAL_V2
+Preserved original ZIP entries: 89
+Modified files:
+- lib/providers/radio_provider.dart
+- lib/widgets/station_card.dart
+Added RadioProvider compatibility members:
+homeStations, history, liveMetadataTitle, activeFilterTitle, selectedCountryCode, selectedTag, currentThemeName, volume, search, filterByCountry, filterByTag, setTheme, setVolume, clearHistory, playRandomStation, playNextFavorite, playPreviousFavorite
+Fixed station rating int/double assignments.

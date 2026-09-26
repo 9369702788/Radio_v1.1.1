@@ -33,6 +33,11 @@ class RadioProvider extends ChangeNotifier {
   String _mostListenedStationName = 'لا توجد';
   Map<String, double> _ratings = {};
   Map<String, String> _notes = {};
+  String? _selectedCountryCode;
+  String? _selectedTag;
+  String _currentThemeName = 'dark';
+  double _volume = 1.0;
+
 
   RadioProvider(this._prefs) {
     _initialize();
@@ -61,6 +66,14 @@ class RadioProvider extends ChangeNotifier {
   String get mostListenedStationName => _mostListenedStationName;
   AudioService get audioService => _audioService;
   List<RadioStation> get homeStations => _stations;
+  List<RadioStation> get history => _recentlyPlayed;
+  String? get liveMetadataTitle => _currentMetadata.isEmpty ? null : _currentMetadata;
+  String? get selectedCountryCode => _selectedCountryCode;
+  String? get selectedTag => _selectedTag;
+  String get activeFilterTitle => _selectedCountryCode ?? _selectedTag ?? 'All stations';
+  String get currentThemeName => _currentThemeName;
+  double get volume => _volume;
+
 
   Future<void> _initialize() async {
     await _audioService.initialize();
@@ -291,6 +304,57 @@ class RadioProvider extends ChangeNotifier {
   }
 
   String getStationNote(String uuid) => _notes[uuid] ?? '';
+
+
+  Future<void> search(String query) => searchStations(query);
+
+  Future<void> filterByCountry(String code, String name) async {
+    _selectedCountryCode = code;
+    _selectedTag = null;
+    await getStationsByCountry(code);
+  }
+
+  void filterByTag(String tag, String name) {
+    _selectedTag = tag;
+    _selectedCountryCode = null;
+    _stations = _stations.where((s) => s.tags.contains(tag)).toList();
+    notifyListeners();
+  }
+
+  void setTheme(String themeName) {
+    _currentThemeName = themeName;
+    notifyListeners();
+  }
+
+  void setVolume(double value) {
+    _volume = value.clamp(0.0, 1.0).toDouble();
+    notifyListeners();
+  }
+
+  void clearHistory() {
+    _recentlyPlayed.clear();
+    _saveRecentlyPlayed();
+    notifyListeners();
+  }
+
+  Future<RadioStation?> playRandomStation() async {
+    if (_stations.isEmpty) return null;
+    final station = _stations[DateTime.now().millisecondsSinceEpoch % _stations.length];
+    await playStation(station);
+    return station;
+  }
+
+  Future<void> playNextFavorite() async {
+    if (_favorites.isEmpty) return;
+    final i = _currentStation == null ? -1 : _favorites.indexWhere((s) => s.uuid == _currentStation!.uuid);
+    await playStation(_favorites[(i + 1) % _favorites.length]);
+  }
+
+  Future<void> playPreviousFavorite() async {
+    if (_favorites.isEmpty) return;
+    final i = _currentStation == null ? 0 : _favorites.indexWhere((s) => s.uuid == _currentStation!.uuid);
+    await playStation(_favorites[(i <= 0 ? _favorites.length : i) - 1]);
+  }
 
   // ===== BACKUP/RESTORE =====
   String exportBackupJson() {
