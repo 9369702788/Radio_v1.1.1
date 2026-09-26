@@ -1,6 +1,7 @@
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 import 'package:provider/provider.dart';
+import 'package:shared_preferences/shared_preferences.dart';
 import 'providers/radio_provider.dart';
 import 'screens/home_screen.dart';
 import 'screens/search_screen.dart';
@@ -13,11 +14,13 @@ import 'constants/app_colors.dart';
 void main() async {
   WidgetsFlutterBinding.ensureInitialized();
   SystemChrome.setPreferredOrientations([DeviceOrientation.portraitUp]);
-  runApp(const WorldRadioApp());
+  final prefs = await SharedPreferences.getInstance();
+  runApp(WorldRadioApp(prefs: prefs));
 }
 
 class WorldRadioApp extends StatelessWidget {
-  const WorldRadioApp({super.key});
+  final SharedPreferences prefs;
+  const WorldRadioApp({super.key, required this.prefs});
 
   @override
   Widget build(BuildContext context) {

@@ -356,18 +356,7 @@ class RadioProvider extends ChangeNotifier {
     super.dispose();
   }
 
-  Future<void> loadMoreHomeStations() async {
-    if (_isLoadingMore) return;
-    _isLoadingMore = true;
-    notifyListeners();
-    try {
-      await fetchHomeStations();
-    } finally {
-      _isLoadingMore = false;
-      notifyListeners();
-    }
-  }
-
+  // --- Missing Members Added for Compatibility ---
   List<RadioStation> get history => _recentlyPlayed;
   String? get liveMetadataTitle => _currentMetadata.isEmpty ? null : _currentMetadata;
   List<RadioStation> get homeStations => _stations;
@@ -380,13 +369,81 @@ class RadioProvider extends ChangeNotifier {
   String get currentThemeName => "Dark";
   double _volume = 1.0;
   double get volume => _volume;
-  Future<void> filterByCountry(String code, String name) async { _selectedCountryCode = code; _activeFilterTitle = name; await getStationsByCountry(code); }
-  Future<void> filterByTag(String tag, String name) async { _selectedTag = tag; _activeFilterTitle = name; notifyListeners(); }
+
+  Future<void> search(String query) async => await searchStations(query);
+
+  Future<void> filterByCountry(String code, String name) async {
+    _selectedCountryCode = code;
+    _activeFilterTitle = name;
+    await getStationsByCountry(code);
+  }
+
+  Future<void> filterByTag(String tag, String name) async {
+    _selectedTag = tag;
+    _activeFilterTitle = name;
+    notifyListeners();
+  }
+
   void setTheme(String theme) { notifyListeners(); }
-  void setVolume(double vol) { _volume = vol; _audioService.setVolume(vol); notifyListeners(); }
-  void clearHistory() { _recentlyPlayed.clear(); _saveRecentlyPlayed(); notifyListeners(); }
-  Future<RadioStation?> playRandomStation() async { if (_stations.isEmpty) return null; final s = _stations[DateTime.now().millisecond % _stations.length]; await playStation(s); return s; }
-  void playNextFavorite() { if (_favorites.isEmpty) return; int idx = _favorites.indexWhere((s) => s.uuid == _currentStation?.uuid); playStation(_favorites[(idx + 1) % _favorites.length]); }
-  void playPreviousFavorite() { if (_favorites.isEmpty) return; int idx = _favorites.indexWhere((s) => s.uuid == _currentStation?.uuid); playStation(_favorites[(idx - 1 + _favorites.length) % _favorites.length]); }
-  void addCustomStation({required String name, required String url, String? country}) { final s = RadioStation(uuid: DateTime.now().millisecondsSinceEpoch.toString(), name: name, url: url, favicon: "", country: country ?? "Custom", countryCode: "XX", language: "", tags: ["Custom"], isFavorite: true); _favorites.add(s); _saveFavorites(); notifyListeners(); }
+
+  void setVolume(double vol) {
+    _volume = vol;
+    _audioService.setVolume(vol);
+    notifyListeners();
+  }
+
+  void clearHistory() {
+    _recentlyPlayed.clear();
+    _saveRecentlyPlayed();
+    notifyListeners();
+  }
+
+  Future<RadioStation?> playRandomStation() async {
+    if (_stations.isEmpty) return null;
+    final s = _stations[DateTime.now().millisecond % _stations.length];
+    await playStation(s);
+    return s;
+  }
+
+  void playNextFavorite() {
+    if (_favorites.isEmpty) return;
+    int idx = _favorites.indexWhere((s) => s.uuid == _currentStation?.uuid);
+    playStation(_favorites[(idx + 1) % _favorites.length]);
+  }
+
+  void playPreviousFavorite() {
+    if (_favorites.isEmpty) return;
+    int idx = _favorites.indexWhere((s) => s.uuid == _currentStation?.uuid);
+    playStation(_favorites[(idx - 1 + _favorites.length) % _favorites.length]);
+  }
+
+  void addCustomStation({required String name, required String url, String? country}) {
+    final s = RadioStation(
+      uuid: DateTime.now().millisecondsSinceEpoch.toString(),
+      name: name,
+      url: url,
+      favicon: "",
+      country: country ?? "Custom",
+      countryCode: "XX",
+      language: "",
+      tags: ["Custom"],
+      isFavorite: true
+    );
+    _favorites.add(s);
+    _saveFavorites();
+    notifyListeners();
+  }
+
+  Future<void> loadMoreHomeStations() async {
+    if (_isLoadingMore) return;
+    _isLoadingMore = true;
+    notifyListeners();
+    try {
+      await fetchHomeStations();
+    } finally {
+      _isLoadingMore = false;
+      notifyListeners();
+    }
+  }
+
 }
