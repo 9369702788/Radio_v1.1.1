@@ -5,8 +5,6 @@ version: 1.1.0+1
 environment:
   sdk: '>=3.0.0 <4.0.0'
 dependencies:
-  just_audio_background: ^0.0.1-beta.15
-  wakelock_plus: ^1.1.4
   flutter:
     sdk: flutter
   just_audio: ^0.9.36
@@ -21,8 +19,6 @@ dependencies:
   flutter_svg: ^2.0.9
   connectivity_plus: ^5.0.2
 dev_dependencies:
-  just_audio_background: ^0.0.1-beta.15
-  wakelock_plus: ^1.1.4
   flutter_test:
     sdk: flutter
   flutter_lints: ^3.0.0

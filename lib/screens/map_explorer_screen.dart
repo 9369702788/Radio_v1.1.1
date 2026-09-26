@@ -42,9 +42,14 @@ class _MapExplorerScreenState extends State<MapExplorerScreen> {
               });
             },
             child: Center(
-              child: InteractiveViewer(
-                minScale: 0.1,
-                maxScale: 20.0,
+              child: GestureDetector(
+                onScaleUpdate: (details) {
+                  setState(() {
+                    _scale = (_scale * details.scale).clamp(0.5, 5.0);
+                  });
+                },
+                minScale: 0.5,
+                maxScale: 4.0,
                 onInteractionUpdate: (details) {
                   setState(() => _scale = details.scale);
                 },
