@@ -1,8 +1,26 @@
-Radio_v1.1.1_COMPLETE_FIXED_FINAL_V2
-Preserved original ZIP entries: 89
-Modified files:
-- lib/providers/radio_provider.dart
-- lib/widgets/station_card.dart
-Added RadioProvider compatibility members:
-homeStations, history, liveMetadataTitle, activeFilterTitle, selectedCountryCode, selectedTag, currentThemeName, volume, search, filterByCountry, filterByTag, setTheme, setVolume, clearHistory, playRandomStation, playNextFavorite, playPreviousFavorite
-Fixed station rating int/double assignments.
+Radio_v1.1.1_COMPLETE_FIXED_FINAL_V3
+Original ZIP entries preserved: 89
+Final ZIP entries: original entries plus this validation file
+
+RadioProvider required members:
+- addCustomStation: OK
+- homeStations: OK
+- history: OK
+- liveMetadataTitle: OK
+- activeFilterTitle: OK
+- selectedCountryCode: OK
+- selectedTag: OK
+- currentThemeName: OK
+- volume: OK
+- clearHistory: OK
+- filterByCountry: OK
+- filterByTag: OK
+- playRandomStation: OK
+- playNextFavorite: OK
+- playPreviousFavorite: OK
+- setTheme: OK
+- setVolume: OK
+- search: OK
+
+Actual new build error fixed: addCustomStation named-argument method.
+Rating int/double assignments fixed in station_card.dart.
