@@ -1,5 +1,4 @@
-import 'package:just_audio_background/just_audio_background.dart';
-import 'package:just_audio/just_audio.dart';
+import 'package:just_audio_background/just_audio_background.dart';\nimport 'package:just_audio/just_audio.dart';
 import 'package:audio_session/audio_session.dart';
 import '../models/radio_station.dart';
 import 'dart:async';
@@ -29,17 +28,7 @@ class AudioService {
 
   Future<void> playStation(RadioStation station) async {
     try {
-      await _audioPlayer.setAudioSource(
-        AudioSource.uri(
-          Uri.parse(station.url),
-          tag: MediaItem(
-            id: station.uuid,
-            album: station.country,
-            title: station.name,
-            artUri: Uri.parse(station.favicon.isNotEmpty ? station.favicon : "https://cdn-icons-png.flaticon.com/512/2907/2907230.png"),
-          ),
-        ),
-      );
+      await _audioPlayer.setAudioSource(AudioSource.uri(Uri.parse(station.url), tag: MediaItem(id: station.uuid, album: station.country, title: station.name, artUri: Uri.parse(station.favicon.isNotEmpty ? station.favicon : "https://cdn-icons-png.flaticon.com/512/2907/2907230.png"))));
       await _audioPlayer.play();
     } catch (e) {
       print("Play Error: $e");

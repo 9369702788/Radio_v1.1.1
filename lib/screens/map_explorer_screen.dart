@@ -41,44 +41,35 @@ class _MapExplorerScreenState extends State<MapExplorerScreen> {
                 _rotationX -= details.delta.dy * 0.01;
               });
             },
+            onScaleUpdate: (details) {
+              setState(() {
+                _scale = (_scale * details.scale).clamp(0.5, 5.0);
+              });
+            },
             child: Center(
-              child: GestureDetector(
-                onScaleUpdate: (details) {
-                  setState(() {
-                    _scale = (_scale * details.scale).clamp(0.5, 5.0);
-                  });
-                },
-                minScale: 0.5,
-                maxScale: 4.0,
-                onInteractionUpdate: (details) {
-                  setState(() => _scale = details.scale);
-                },
-                child: Transform(
+              child: Transform(
+                alignment: Alignment.center,
+                transform: Matrix4.identity()
+                  ..setEntry(3, 2, 0.001)
+                  ..rotateX(_rotationX)
+                  ..rotateY(_rotationY)
+                  ..scale(_scale),
+                child: Stack(
                   alignment: Alignment.center,
-                  transform: Matrix4.identity()
-                    ..setEntry(3, 2, 0.001)
-                    ..rotateX(_rotationX)
-                    ..rotateY(_rotationY)
-                    ..scale(_scale),
-                  child: Stack(
-                    alignment: Alignment.center,
-                    children: [
-                      // The Globe Sphere
-                      Container(
-                        width: 300, height: 300,
-                        decoration: BoxDecoration(
-                          shape: BoxShape.circle,
-                          gradient: RadialGradient(
-                            colors: [Colors.blue.shade900, Colors.black],
-                            center: const Alignment(-0.3, -0.3),
-                          ),
-                          boxShadow: [BoxShadow(color: Colors.blue.withOpacity(0.3), blurRadius: 50, spreadRadius: 10)],
+                  children: [
+                    Container(
+                      width: 300, height: 300,
+                      decoration: BoxDecoration(
+                        shape: BoxShape.circle,
+                        gradient: RadialGradient(
+                          colors: [Colors.blue.shade900, Colors.black],
+                          center: const Alignment(-0.3, -0.3),
                         ),
+                        boxShadow: [BoxShadow(color: Colors.blue.withOpacity(0.3), blurRadius: 50, spreadRadius: 10)],
                       ),
-                      // City Pins
-                      ..._cities.map((city) => _buildCityPin(city)),
-                    ],
-                  ),
+                    ),
+                    ..._cities.map((city) => _buildCityPin(city)),
+                  ],
                 ),
               ),
             ),
@@ -95,10 +86,7 @@ class _MapExplorerScreenState extends State<MapExplorerScreen> {
     double x = 150 * math.cos(latRad) * math.sin(lngRad);
     double y = -150 * math.sin(latRad);
     double z = 150 * math.cos(latRad) * math.cos(lngRad);
-
-    // Only show if facing the camera
     if (z < 0) return const SizedBox.shrink();
-
     return Positioned(
       left: 150 + x - 20,
       top: 150 + y - 20,
@@ -126,9 +114,9 @@ class _MapExplorerScreenState extends State<MapExplorerScreen> {
       bottom: 40, right: 20,
       child: Column(
         children: [
-          FloatingActionButton.small(onPressed: () => setState(() => _scale += 0.2), child: const Icon(Icons.add)),
+          FloatingActionButton.small(onPressed: () => setState(() => _scale = (_scale + 0.2).clamp(0.5, 5.0)), child: const Icon(Icons.add)),
           const SizedBox(height: 10),
-          FloatingActionButton.small(onPressed: () => setState(() => _scale -= 0.2), child: const Icon(Icons.remove)),
+          FloatingActionButton.small(onPressed: () => setState(() => _scale = (_scale - 0.2).clamp(0.5, 5.0)), child: const Icon(Icons.remove)),
           const SizedBox(height: 10),
           FloatingActionButton.small(onPressed: () => setState(() { _scale = 1.0; _rotationX = 0; _rotationY = 0; }), child: const Icon(Icons.restart_alt)),
         ],

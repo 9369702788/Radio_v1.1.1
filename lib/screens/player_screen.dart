@@ -1,4 +1,4 @@
-import 'dart:math' as math;
+import 'dart:math' as math;\nimport '../services/widget_service.dart';\nimport 'dart:math' as math;
 import '../services/widget_service.dart';
 import 'dart:async';
 import 'package:flutter/material.dart';
