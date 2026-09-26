@@ -1,3 +1,4 @@
+import 'package:just_audio_background/just_audio_background.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 import 'package:provider/provider.dart';
@@ -13,6 +14,7 @@ import 'constants/app_colors.dart';
 
 void main() async {
   WidgetsFlutterBinding.ensureInitialized();
+  await JustAudioBackground.init(androidNotificationChannelId: 'com.worldradio.app.channel.audio', androidNotificationChannelName: 'Radio Playback', androidNotificationOngoing: true);
   SystemChrome.setPreferredOrientations([DeviceOrientation.portraitUp]);
   final prefs = await SharedPreferences.getInstance();
   runApp(WorldRadioApp(prefs: prefs));
