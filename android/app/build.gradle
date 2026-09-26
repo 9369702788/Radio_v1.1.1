@@ -17,7 +17,7 @@ def flutterVersionName = localProperties.getProperty('flutter.versionName') ?: '
 
 android {
     namespace "com.worldradio.app"
-    compileSdk = 36
+    compileSdk 34
     ndkVersion flutter.ndkVersion
 
     compileOptions {
@@ -32,7 +32,7 @@ android {
     defaultConfig {
         applicationId "com.worldradio.app"
         minSdkVersion 21
-        targetSdkVersion 36
+        targetSdkVersion 34
         versionCode flutterVersionCode.toInteger()
         versionName flutterVersionName
     }
