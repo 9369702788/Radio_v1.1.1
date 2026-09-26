@@ -7,6 +7,7 @@ import android.content.ComponentName
 import android.content.Context
 import android.content.Intent
 import android.widget.RemoteViews
+import com.worldradio.app.R
 
 class RadioWidgetProvider : AppWidgetProvider() {
     override fun onUpdate(context: Context, appWidgetManager: AppWidgetManager, appWidgetIds: IntArray) {
@@ -16,7 +17,7 @@ class RadioWidgetProvider : AppWidgetProvider() {
             // Play/Pause Intent
             val playIntent = Intent(context, MainActivity::class.java).apply { action = "com.worldradio.app.PLAY_PAUSE" }
             val playPendingIntent = PendingIntent.getActivity(context, 0, playIntent, PendingIntent.FLAG_IMMUTABLE)
-            views.setOnClickPendingIntent(R.id.widget_play_pause, playPendingIntent)
+            views.setOnClickPendingIntent(R.id.widget_play_button, playPendingIntent)
 
             appWidgetManager.updateAppWidget(appWidgetId, views)
         }
