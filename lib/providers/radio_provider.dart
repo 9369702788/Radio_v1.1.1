@@ -2,409 +2,357 @@ import 'dart:async';
 import 'dart:convert';
 import 'dart:io';
 import 'package:flutter/material.dart';
-import 'package:flutter/services.dart';
 import 'package:shared_preferences/shared_preferences.dart';
-import 'package:path_provider/path_provider.dart';
 import '../models/radio_station.dart';
-import '../models/recording_item.dart';
 import '../services/radio_api_service.dart';
 import '../services/audio_service.dart';
-import '../services/recording_service.dart';
-import '../services/ambient_sound_service.dart';
 
 class RadioProvider extends ChangeNotifier {
-  final RadioApiService _api = RadioApiService();
-  final AudioService _audio = AudioService();
-  final RecordingService _recorder = RecordingService();
-  final AmbientSoundService _ambient = AmbientSoundService();
+  final RadioApiService _apiService = RadioApiService();
+  final AudioService _audioService = AudioService();
+  final SharedPreferences _prefs;
 
-  List<RadioStation> _homeStations = [];
-  List<RadioStation> _searchResults = [];
+  List<RadioStation> _stations = [];
   List<RadioStation> _favorites = [];
-  List<RadioStation> _history = [];
-  List<RecordingItem> _recordingsList = [];
-
+  List<RadioStation> _recentlyPlayed = [];
+  List<RadioStation> _searchResults = [];
   RadioStation? _currentStation;
-  RadioStation? _lastStation;
   bool _isLoading = false;
-  bool _isLoadingMore = false;
+  bool _isPlaying = false;
   bool _isSearching = false;
+  bool _isLoadingMore = false;
+  bool _dataSaverMode = false;
   String? _errorMessage;
-  String _activeFilterTitle = '🌍 كل المحطات';
-  String? _selectedCountryCode;
-  String? _selectedTag;
-  String _selectedFavoritesFolder = 'الكل';
-  int _offset = 0;
-  bool _hasMore = true;
-  bool _dataSaver = false;
+  String _selectedFavoritesFolder = 'All';
+  String _currentMetadata = '';
+  bool _isBuffering = false;
+  bool _isRecording = false;
+  List<dynamic> _recordingsList = [];
+  int _totalListeningMinutes = 0;
+  int _dailyStreak = 0;
+  String _mostListenedStationName = 'لا توجد';
+  Map<String, double> _ratings = {};
+  Map<String, String> _notes = {};
 
-  final Map<String, int> _ratings = {};
-  final Map<String, String> _notes = {};
-  int _totalListeningMinutes = 90;
-  int _dailyStreak = 5;
-  String _mostListenedStationName = 'إذاعة القرآن الكريم';
-
-  // Getters
-  List<RadioStation> get stations => _homeStations;
-  List<RadioStation> get homeStations => _homeStations;
-  List<RadioStation> get searchResults => _searchResults;
-  List<RadioStation> get favorites => _favorites;
-  List<RadioStation> get filteredFavorites {
-    if (_selectedFavoritesFolder == 'الكل') return _favorites;
-    return _favorites.where((s) => s.tags.any((t) => t.toLowerCase().contains(_selectedFavoritesFolder.toLowerCase()))).toList();
+  RadioProvider(this._prefs) {
+    _initialize();
   }
-  String get selectedFavoritesFolder => _selectedFavoritesFolder;
-  List<RadioStation> get history => _history;
-  List<RecordingItem> get recordingsList => _recordingsList;
+
+  // ===== GETTERS =====
+  List<RadioStation> get stations => _stations;
+  List<RadioStation> get favorites => _favorites;
+  List<RadioStation> get recentlyPlayed => _recentlyPlayed;
+  List<RadioStation> get searchResults => _searchResults;
+  List<RadioStation> get filteredFavorites => _favorites;
   RadioStation? get currentStation => _currentStation;
   bool get isLoading => _isLoading;
-  bool get isLoadingMore => _isLoadingMore;
+  bool get isPlaying => _isPlaying;
   bool get isSearching => _isSearching;
+  bool get isLoadingMore => _isLoadingMore;
+  bool get dataSaverMode => _dataSaverMode;
   String? get errorMessage => _errorMessage;
-  bool get isPlaying => _audio.isPlaying;
-  bool get isBuffering => _audio.isBuffering;
-  bool get isRecording => _recorder.isRecording;
-  bool get hasMore => _hasMore;
-  bool get dataSaver => _dataSaver;
-  bool get dataSaverMode => _dataSaver; // Fixes dataSaverMode
-  String get activeFilterTitle => _activeFilterTitle;
-  String? get selectedCountryCode => _selectedCountryCode;
-  String? get selectedTag => _selectedTag;
-  String get currentMetadata => _audio.currentMetadata.isNotEmpty ? _audio.currentMetadata : (_currentStation?.name ?? 'World Radio');
-  String? get liveMetadataTitle => currentMetadata;
+  String get selectedFavoritesFolder => _selectedFavoritesFolder;
+  String get currentMetadata => _currentMetadata.isEmpty ? 'بث مباشر...' : _currentMetadata;
+  bool get isBuffering => _isBuffering;
+  bool get isRecording => _isRecording;
+  List<dynamic> get recordingsList => _recordingsList;
   int get totalListeningMinutes => _totalListeningMinutes;
   int get dailyStreak => _dailyStreak;
   String get mostListenedStationName => _mostListenedStationName;
-  AmbientSoundService get ambient => _ambient;
+  AudioService get audioService => _audioService;
 
-  RadioProvider() {
-    _init();
+  Future<void> _initialize() async {
+    await _audioService.initialize();
+    await _loadFavorites();
+    await _loadRecentlyPlayed();
+    await _loadSettings();
   }
 
-  Future<void> _init() async {
-    await _audio.initialize();
-    await _loadLocalData();
-    await loadInitialStations();
-    await refreshRecordings();
-  }
-
-  // Fixes loadTopStations
-  Future<void> loadTopStations() async {
-    await resetFilter();
-  }
-
-  void setFavoritesFolder(String folder) {
-    _selectedFavoritesFolder = folder;
-    notifyListeners();
-  }
-
-  String exportBackupJson() {
-    final data = {
-      'favorites': _favorites.map((s) => s.toJson()).toList(),
-      'history': _history.map((s) => s.toJson()).toList(),
-      'ratings': _ratings,
-      'notes': _notes,
-      'exported_at': DateTime.now().toIso8601String(),
-    };
-    return jsonEncode(data);
-  }
-
-  Future<int> importBackupJson(String jsonStr) async {
-    try {
-      final Map<String, dynamic> data = jsonDecode(jsonStr);
-      int count = 0;
-      if (data.containsKey('favorites')) {
-        final List favList = data['favorites'];
-        for (var item in favList) {
-          final station = RadioStation.fromJson(item);
-          if (!_favorites.any((f) => f.uuid == station.uuid)) {
-            station.isFavorite = true;
-            _favorites.add(station);
-            count++;
-          }
-        }
-      }
-      await _saveFavorites();
-      notifyListeners();
-      return count;
-    } catch (_) {
-      return 0;
-    }
-  }
-
-  Future<void> search(String query) async {
-    if (query.trim().isEmpty) {
+  // ===== SEARCH =====
+  Future<void> searchStations(String query) async {
+    if (query.isEmpty) {
       _searchResults = [];
       _isSearching = false;
       notifyListeners();
       return;
     }
+
     _isSearching = true;
-    _isLoading = true;
-    notifyListeners();
-    try {
-      _searchResults = await _api.getStations(query: query.trim(), limit: 100);
-      _errorMessage = null;
-    } catch (e) {
-      _errorMessage = 'حدث خطأ في البحث';
-    } finally {
-      _isSearching = false;
-      _isLoading = false;
-      notifyListeners();
-    }
-  }
-
-  Future<void> fetchHomeStations({String? countryCode, String? tag}) async {
-    _selectedCountryCode = countryCode;
-    _selectedTag = tag;
-    await loadInitialStations();
-  }
-
-  Future<void> loadInitialStations() async {
-    _isLoading = true;
-    _offset = 0;
-    _hasMore = true;
     _errorMessage = null;
     notifyListeners();
 
     try {
-      _homeStations = await _api.getStations(
-        countryCode: _selectedCountryCode,
-        tag: _selectedTag,
-        offset: 0,
-      );
+      _searchResults = await _apiService.searchStations(query);
+      for (var station in _searchResults) {
+        station.isFavorite = _favorites.any((fav) => fav.uuid == station.uuid);
+      }
     } catch (e) {
-      _errorMessage = 'تعذر تحميل المحطات، يرجى المحاولة مرة أخرى';
+      _errorMessage = 'خطأ في البحث';
+    } finally {
+      _isSearching = false;
+      notifyListeners();
+    }
+  }
+
+  // ===== STATIONS BY CATEGORY =====
+  Future<void> getStationsByCountry(String countryCode) async {
+    _isLoading = true;
+    _errorMessage = null;
+    notifyListeners();
+
+    try {
+      _stations = await _apiService.getStationsByCountry(countryCode);
+      for (var station in _stations) {
+        station.isFavorite = _favorites.any((fav) => fav.uuid == station.uuid);
+      }
+    } catch (e) {
+      _errorMessage = 'خطأ في جلب المحطات';
     } finally {
       _isLoading = false;
       notifyListeners();
     }
   }
 
-  Future<void> loadMoreHomeStations() async {
-    if (_isLoading || _isLoadingMore || !_hasMore) return;
-    _isLoadingMore = true;
+  Future<void> loadTopStations() async {
+    _isLoading = true;
+    _errorMessage = null;
+    _stations = [];
     notifyListeners();
-    _offset += 500;
+
     try {
-      final more = await _api.getStations(
-        countryCode: _selectedCountryCode,
-        tag: _selectedTag,
-        offset: _offset,
-      );
-      if (more.isEmpty) {
-        _hasMore = false;
-      } else {
-        _homeStations.addAll(more);
+      _stations = await _apiService.getTopStations();
+      for (var station in _stations) {
+        station.isFavorite = _favorites.any((fav) => fav.uuid == station.uuid);
       }
-    } catch (_) {}
-    _isLoadingMore = false;
+    } catch (e) {
+      _errorMessage = 'فشل تحميل أفضل المحطات';
+    } finally {
+      _isLoading = false;
+      notifyListeners();
+    }
+  }
+
+  Future<void> fetchHomeStations({String? countryCode}) async {
+    _isLoading = true;
+    _errorMessage = null;
     notifyListeners();
+
+    try {
+      if (countryCode != null) {
+        _stations = await _apiService.getStationsByCountry(countryCode);
+      } else {
+        _stations = await _apiService.getTopStations();
+      }
+      for (var station in _stations) {
+        station.isFavorite = _favorites.any((fav) => fav.uuid == station.uuid);
+      }
+    } catch (e) {
+      _errorMessage = 'خطأ في تحميل المحطات';
+    } finally {
+      _isLoading = false;
+      notifyListeners();
+    }
   }
 
-  Future<void> filterByCountry(String code, String name) async {
-    _selectedCountryCode = code;
-    _selectedTag = null;
-    _activeFilterTitle = name;
-    await loadInitialStations();
-  }
-
-  Future<void> filterByTag(String tag, String name) async {
-    _selectedTag = tag;
-    _selectedCountryCode = null;
-    _activeFilterTitle = name;
-    await loadInitialStations();
-  }
-
-  Future<void> resetFilter() async {
-    _selectedCountryCode = null;
-    _selectedTag = null;
-    _activeFilterTitle = '🌍 كل المحطات';
-    await loadInitialStations();
-  }
-
-  void toggleDataSaver() {
-    _dataSaver = !_dataSaver;
-    notifyListeners();
-  }
-
+  // ===== PLAYBACK CONTROL =====
   Future<void> playStation(RadioStation station) async {
     try {
-      if (_currentStation != null && _currentStation!.uuid != station.uuid) {
-        _lastStation = _currentStation;
-      }
+      await _audioService.playStation(station);
       _currentStation = station;
+      _isPlaying = true;
+      _addToRecentlyPlayed(station);
       notifyListeners();
-      await _audio.play(station);
-      _addToHistory(station);
-      _updateWidget();
+    } catch (e) {
+      _errorMessage = 'خطأ في التشغيل';
+      _isPlaying = false;
       notifyListeners();
-    } catch (_) {}
+    }
   }
 
   Future<void> togglePlay() async {
-    if (_audio.isPlaying) {
-      await _audio.pause();
+    if (_isPlaying) {
+      await _audioService.pause();
+      _isPlaying = false;
     } else {
-      if (_currentStation != null) {
-        await _audio.resume();
-      }
+      await _audioService.resume();
+      _isPlaying = true;
     }
-    _updateWidget();
     notifyListeners();
   }
 
-  Future<void> togglePlayPause() => togglePlay();
+  Future<void> togglePlayPause() async {
+    await togglePlay();
+  }
 
   Future<void> stop() async {
-    await _audio.stop();
+    await _audioService.stop();
+    _currentStation = null;
+    _isPlaying = false;
     notifyListeners();
   }
 
-  void skipForward() {
-    final list = _favorites.isNotEmpty ? _favorites : _homeStations;
-    if (list.isEmpty) return;
-    int idx = list.indexWhere((s) => s.uuid == _currentStation?.uuid);
-    int nextIdx = (idx + 1) % list.length;
-    playStation(list[nextIdx]);
-  }
-
-  void skipBackward() {
-    final list = _favorites.isNotEmpty ? _favorites : _homeStations;
-    if (list.isEmpty) return;
-    int idx = list.indexWhere((s) => s.uuid == _currentStation?.uuid);
-    int prevIdx = (idx - 1 + list.length) % list.length;
-    playStation(list[prevIdx]);
-  }
-
-  void quickRecall() {
-    if (_lastStation != null) playStation(_lastStation!);
-  }
-
-  void playRandomStation() {
-    if (_homeStations.isNotEmpty) {
-      _homeStations.shuffle();
-      playStation(_homeStations.first);
-    }
-  }
-
-  Future<void> startRecording() async {
-    if (_currentStation == null) return;
-    await _recorder.startRecording(_currentStation!.url, _currentStation!.name);
-    notifyListeners();
-  }
-
-  Future<void> stopRecording() async {
-    await _recorder.stopRecording();
-    await refreshRecordings();
-    notifyListeners();
-  }
-
-  Future<void> refreshRecordings() async {
-    try {
-      final dir = await getApplicationDocumentsDirectory();
-      final recDir = Directory('${dir.path}/recordings');
-      if (await recDir.exists()) {
-        final files = recDir.listSync().whereType<File>().where((f) => f.path.endsWith('.mp3')).toList();
-        _recordingsList = files.map((f) {
-          final filename = f.path.split('/').last.replaceAll('.mp3', '');
-          final parts = filename.split('_');
-          final station = parts.isNotEmpty ? parts.first : 'تسجيل إذاعي';
-          final stat = f.statSync();
-          return RecordingItem(
-            path: f.path,
-            stationName: station,
-            date: stat.modified,
-            sizeBytes: stat.size,
-          );
-        }).toList();
-      } else {
-        _recordingsList = [];
+  Future<void> skipForward() async {
+    if (_stations.isNotEmpty && _currentStation != null) {
+      final index = _stations.indexWhere((s) => s.uuid == _currentStation!.uuid);
+      if (index >= 0 && index < _stations.length - 1) {
+        await playStation(_stations[index + 1]);
       }
-    } catch (_) {
-      _recordingsList = [];
     }
-    notifyListeners();
   }
 
-  Future<void> deleteRecording(String path) async {
-    try {
-      final f = File(path);
-      if (await f.exists()) await f.delete();
-      await refreshRecordings();
-    } catch (_) {}
+  Future<void> skipBackward() async {
+    if (_stations.isNotEmpty && _currentStation != null) {
+      final index = _stations.indexWhere((s) => s.uuid == _currentStation!.uuid);
+      if (index > 0) {
+        await playStation(_stations[index - 1]);
+      }
+    }
   }
 
-  void toggleFavorite(RadioStation station) {
+  // ===== FAVORITES =====
+  Future<void> toggleFavorite(RadioStation station) async {
     station.isFavorite = !station.isFavorite;
     if (station.isFavorite) {
       _favorites.add(station);
     } else {
-      _favorites.removeWhere((s) => s.uuid == station.uuid);
+      _favorites.removeWhere((fav) => fav.uuid == station.uuid);
     }
-    _saveFavorites();
+    await _saveFavorites();
     notifyListeners();
   }
 
-  void _addToHistory(RadioStation s) {
-    _history.removeWhere((item) => item.uuid == s.uuid);
-    _history.insert(0, s);
-    if (_history.length > 50) _history.removeLast();
-    _saveHistory();
+  Future<void> _saveFavorites() async {
+    try {
+      final json = _favorites.map((s) => jsonEncode(s.toJson())).toList();
+      await _prefs.setStringList('favorites', json);
+    } catch (e) {
+      print('خطأ في حفظ المفضلة');
+    }
   }
 
-  void clearHistory() {
-    _history.clear();
-    _saveHistory();
+  Future<void> _loadFavorites() async {
+    try {
+      final json = _prefs.getStringList('favorites') ?? [];
+      _favorites = json.map((j) => RadioStation.fromJson(jsonDecode(j))).toList();
+      notifyListeners();
+    } catch (e) {
+      print('خطأ في تحميل المفضلة');
+    }
+  }
+
+  // ===== RECENTLY PLAYED =====
+  void _addToRecentlyPlayed(RadioStation station) async {
+    _recentlyPlayed.removeWhere((s) => s.uuid == station.uuid);
+    _recentlyPlayed.insert(0, station);
+    if (_recentlyPlayed.length > 50) {
+      _recentlyPlayed = _recentlyPlayed.sublist(0, 50);
+    }
+    await _saveRecentlyPlayed();
+  }
+
+  Future<void> _saveRecentlyPlayed() async {
+    try {
+      final json = _recentlyPlayed.map((s) => jsonEncode(s.toJson())).toList();
+      await _prefs.setStringList('recently_played', json);
+    } catch (e) {
+      print('خطأ في حفظ المستمع إليها مؤخراً');
+    }
+  }
+
+  Future<void> _loadRecentlyPlayed() async {
+    try {
+      final json = _prefs.getStringList('recently_played') ?? [];
+      _recentlyPlayed = json.map((j) => RadioStation.fromJson(jsonDecode(j))).toList();
+      notifyListeners();
+    } catch (e) {
+      print('خطأ في تحميل المستمع إليها مؤخراً');
+    }
+  }
+
+  // ===== DATA SAVER MODE =====
+  void toggleDataSaverMode() {
+    _dataSaverMode = !_dataSaverMode;
+    _prefs.setBool('data_saver_mode', _dataSaverMode);
     notifyListeners();
   }
 
-  void setStationRating(String uuid, int stars) {
-    _ratings[uuid] = stars;
-    _saveLocalMap('ratings', _ratings);
+  // ===== RATINGS & NOTES =====
+  void setStationRating(String uuid, double rating) {
+    _ratings[uuid] = rating;
     notifyListeners();
   }
 
-  int getStationRating(String uuid) => _ratings[uuid] ?? 0;
+  double getStationRating(String uuid) => _ratings[uuid] ?? 0.0;
 
   void setStationNote(String uuid, String note) {
     _notes[uuid] = note;
-    _saveLocalMap('notes', _notes);
     notifyListeners();
   }
 
   String getStationNote(String uuid) => _notes[uuid] ?? '';
 
-  void _updateWidget() {
+  // ===== BACKUP/RESTORE =====
+  String exportBackupJson() {
+    return jsonEncode({
+      'favorites': _favorites.map((s) => s.toJson()).toList(),
+      'recently_played': _recentlyPlayed.map((s) => s.toJson()).toList(),
+      'ratings': _ratings,
+      'notes': _notes,
+    });
+  }
+
+  Future<int> importBackupJson(String json) async {
     try {
-      const MethodChannel('com.worldradio.app/widget').invokeMethod('updateWidget', {
-        'title': _currentStation?.name ?? 'World Radio',
-        'desc': currentMetadata,
-        'isPlaying': _audio.isPlaying,
-      });
-    } catch (_) {}
+      final data = jsonDecode(json);
+      _favorites = (data['favorites'] as List).map((j) => RadioStation.fromJson(j)).toList();
+      _recentlyPlayed = (data['recently_played'] as List).map((j) => RadioStation.fromJson(j)).toList();
+      _ratings = Map<String, double>.from(data['ratings'] ?? {});
+      _notes = Map<String, String>.from(data['notes'] ?? {});
+      await _saveFavorites();
+      await _saveRecentlyPlayed();
+      notifyListeners();
+      return _favorites.length;
+    } catch (e) {
+      _errorMessage = 'خطأ في استيراد النسخة الاحتياطية';
+      return 0;
+    }
   }
 
-  Future<void> _saveFavorites() async {
-    final prefs = await SharedPreferences.getInstance();
-    prefs.setStringList('favs', _favorites.map((s) => jsonEncode(s.toJson())).toList());
+  // ===== FAVORITES FOLDERS =====
+  void setFavoritesFolder(String folder) {
+    _selectedFavoritesFolder = folder;
+    _prefs.setString('selected_folder', folder);
+    notifyListeners();
   }
 
-  Future<void> _saveHistory() async {
-    final prefs = await SharedPreferences.getInstance();
-    prefs.setStringList('hist', _history.map((s) => jsonEncode(s.toJson())).toList());
+  // ===== SETTINGS =====
+  Future<void> _loadSettings() async {
+    _dataSaverMode = _prefs.getBool('data_saver_mode') ?? false;
+    _selectedFavoritesFolder = _prefs.getString('selected_folder') ?? 'All';
+    notifyListeners();
   }
 
-  Future<void> _saveLocalMap(String key, Map map) async {
-    final prefs = await SharedPreferences.getInstance();
-    prefs.setString(key, jsonEncode(map));
+  // ===== RECORDING =====
+  Future<void> refreshRecordings() async {
+    _isLoading = true;
+    notifyListeners();
+    try {
+      await Future.delayed(const Duration(milliseconds: 500));
+      _recordingsList = [];
+    } finally {
+      _isLoading = false;
+      notifyListeners();
+    }
   }
 
-  Future<void> _loadLocalData() async {
-    final prefs = await SharedPreferences.getInstance();
-    final f = prefs.getStringList('favs') ?? [];
-    _favorites = f.map((s) => RadioStation.fromJson(jsonDecode(s))).toList();
-    final h = prefs.getStringList('hist') ?? [];
-    _history = h.map((s) => RadioStation.fromJson(jsonDecode(s))).toList();
+  Future<void> deleteRecording(String path) async {
+    _recordingsList.removeWhere((r) => r.path == path);
+    notifyListeners();
+  }
+
+  @override
+  Future<void> dispose() async {
+    await _audioService.dispose();
+    super.dispose();
   }
 }
